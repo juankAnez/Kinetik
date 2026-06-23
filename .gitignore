@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+*.whl
+*.so
+
+# Virtual environment
+venv/
+.env
+.venv/
+env/
+
+# Django
+backend/media/
+backend/static/
+backend/celerybeat-schedule
+*.sqlite3
+
+# Docker
+docker/dev/.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

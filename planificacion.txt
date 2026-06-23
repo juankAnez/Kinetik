@@ -1,0 +1,784 @@
+# PLATAFORMA DE DOMICILIOS - ARQUITECTURA CON DJANGO + REACT NATIVE
+## Documento de Consultoría Tecnológica - Listo para Producción
+
+---
+
+> **Instrucción para generar el PDF**: Copie el contenido de este documento en un editor de Markdown (Typora, Obsidian o VS Code) y utilice la extensión "Markdown PDF" o la función "Imprimir -> Guardar como PDF" del navegador. El documento está estructurado con jerarquías claras (H1, H2, H3) para una generación automática de índices.
+
+---
+
+## Índice
+
+1. Resumen Ejecutivo
+2. Fase 1: Análisis del Negocio
+3. Fase 2: Arquitectura del Sistema
+4. Fase 3: Roles y Permisos (RBAC)
+5. Fase 4: Módulos del Sistema
+6. Fase 5: Experiencia de Usuario
+7. Fase 6: Algoritmo de Asignación de Pedidos
+8. Fase 7: Geolocalización y Seguimiento GPS
+9. Fase 8: Pagos
+10. Fase 9: Seguridad y Cumplimiento Legal
+11. Fase 10: Estrategia Offline
+12. Fase 11: Escalabilidad
+13. Fase 12: DevOps con Docker
+14. Fase 13: Monitoreo y Observabilidad
+15. Fase 14: Estrategia de Pruebas
+16. Fase 15: Disaster Recovery
+17. Fase 16: API REST
+18. Fase 17: Plan de Migración a Multi-Tenant
+19. Fase 18: Roadmap
+20. Fase 19: Stack Tecnológico Justificado
+21. Entregable Final: Costos, Riesgos y Recomendaciones
+
+---
+
+## Resumen Ejecutivo
+
+Este documento describe la arquitectura de una plataforma de domicilios construida con **Django + React Native (Expo)**, diseñada para escalar desde un municipio hasta múltiples ciudades. Adoptamos un enfoque **single-tenant preparado para multi-tenant**: desde el Día 1 incluimos `municipio_id` en los modelos clave para que la migración a `django-pgschemas` sea trivial cuando se abran nuevos municipios.
+
+**Backend**: Django 5.x + Django REST Framework, con **PostgreSQL + PostGIS** para geolocalización, **Redis** para caché/colas/sesiones, **Celery** para tareas asíncronas y **Django Channels + Daphne** para WebSockets en tiempo real.
+
+**Frontend móvil**: React Native con Expo (iOS y Android). **Dashboard web**: React (Vite) + Tailwind CSS para comercios y administradores.
+
+**Infraestructura**: Docker Compose para desarrollo y MVP. Migración gradual a Kubernetes (EKS) cuando las métricas lo justifiquen. Sin over-engineering inicial.
+
+---
+
+## Fase 1: Análisis del Negocio
+
+### Problema que Resuelve
+- **Mercado**: Fragmentación logística en pequeños comercios; demanda de inmediatez por parte de consumidores digitales.
+- **Beneficios**:
+  - **Clientes**: Catálogo unificado, tracking en vivo, múltiples pagos.
+  - **Comercios**: Aumento de ventas sin flota propia; dashboard analítico.
+  - **Domiciliarios**: Ingresos flexibles, optimización de rutas, bonos por rendimiento.
+  - **Administradores**: Control total de operaciones, fraude, y KPIs en tiempo real.
+
+### Modelo de Negocio (Monetización)
+1. **Comisión por pedido**: 15%-25% dinámico (comercios premium pagan menos).
+2. **Cobro de domicilio**: Tarifa base ($1.500 COP) + $400 COP/km, con multiplicador 1.2x-2.5x en horas pico.
+3. **Suscripciones Premium**: Envíos gratis por $12.000 COP/mes (ingreso recurrente).
+4. **Publicidad**: Pago por clic (CPC) para destacar comercios en el home.
+5. **API B2B**: Sincronización de inventarios para cadenas grandes (cobro por transacción).
+
+### KPIs Clave desde el Día 1
+- Pedidos/día (crecimiento semanal)
+- Tiempo promedio de entrega (desde pedido hasta recibido)
+- Tasa de asignación (% de pedidos asignados a domiciliario en <30s)
+- Satisfacción del cliente (rating post-entrega)
+- Tasa de cancelación de domiciliarios
+- Ingreso por pedido (ARPU)
+
+---
+
+## Fase 2: Arquitectura del Sistema
+
+Adoptamos una **Arquitectura Hexagonal (Puertos y Adaptadores)** con estructura de aplicaciones Django desacopladas, preparada para que cada dominio pueda extraerse a microservicio sin reescribir lógica.
+
+### 2.1 Frontend (Multiplataforma)
+
+| Plataforma | Tecnología | Justificación |
+| :--- | :--- | :--- |
+| **Móvil (Clientes y Domiciliarios)** | React Native (Expo) | Comparte ~90% del código entre iOS/Android. Expo simplifica el build y las actualizaciones OTA. Soporte nativo para mapas, cámara, GPS y notificaciones push. |
+| **Web (Comercios y Administradores)** | React (Vite) + Tailwind CSS | Dashboard pesado en datos; React permite componentes reutilizables y estado global eficiente (Zustand). Vite garantiza compilación ultrarrápida. |
+| **Alternativa Web (Django nativa)** | Django Templates + HTMX + Alpine.js | Menor curva de aprendizaje, SEO nativo. Recomendada para equipos pequeños que quieran reducir dependencias. |
+
+**Estructura del proyecto móvil**:
+```
+/mobile
+  /src
+    /modules
+      /auth
+      /catalog
+      /cart
+      /orders
+      /tracking
+      /payments
+      /profile
+    /shared
+      /components
+      /hooks
+      /services (API client - Axios)
+      /stores (Zustand)
+      /offline (WatermelonDB sync)
+```
+
+### 2.2 Backend (Django + DRF)
+
+**Arquitectura por capas**:
+
+1. **Domain Layer** (Modelos): `models.py` con lógica de negocio, validaciones, propiedades.
+2. **Application Layer** (Casos de Uso): `services.py`/`use_cases.py`. Orquestan modelos y adaptadores externos.
+3. **Infrastructure Layer** (Adaptadores):
+   - **Repositorios**: `repositories.py` (abstracción sobre ORM).
+   - **Servicios externos**: `google_maps_client.py`, `payment_gateway.py`.
+4. **Presentation Layer**: `views.py` (DRF ViewSets) + `serializers.py`.
+
+**Principios SOLID**:
+- **S** (Responsabilidad única): Cada app maneja un dominio.
+- **O** (Abierto/Cerrado): Herencia de `ModelViewSet` y mixins.
+- **L** (Sustitución de Liskov): Interfaces ABC para repositorios.
+- **I** (Segregación de interfaces): Separación de comandos (escritura) y consultas (lectura).
+- **D** (Inversión de dependencias): Servicios dependen de abstracciones, no del ORM.
+
+**Patrones de Diseño**:
+- **Repository**: Abstrae acceso a datos.
+- **Unit of Work**: Transacciones atómicas (`transaction.atomic()`).
+- **Factory**: Creación de pedidos con diferentes estados.
+- **Strategy**: Algoritmo de asignación inyectable.
+- **Observer**: `post_save` signals para eventos ligeros (pedidos, notificaciones).
+
+### 2.3 Preparación para Multi-Tenant (desde el Día 1)
+
+Aunque el MVP opera con un solo municipio, todos los modelos transaccionales incluyen `municipio_id`:
+
+```python
+class Municipio(models.Model):
+    codigo_dane = models.CharField(max_length=10, unique=True)
+    nombre = models.CharField(max_length=100)
+    centro_lat = models.FloatField()
+    centro_lng = models.FloatField()
+    radio_km = models.FloatField(default=10)
+    activo = models.BooleanField(default=True)
+
+class Store(models.Model):
+    municipio = models.ForeignKey(Municipio, on_delete=models.CASCADE)
+    # ... resto de campos
+
+class Order(models.Model):
+    municipio = models.ForeignKey(Municipio, on_delete=models.CASCADE)
+    # ... resto de campos
+```
+
+Esto permite filtrar por municipio y, en el futuro, migrar a `django-pgschemas` (schema-per-tenant) con cero cambios en los modelos.
+
+### 2.4 Diagrama de Alto Nivel
+
+```mermaid
+flowchart TD
+    Client[App Móvil RN] --> CDN[CloudFront/CDN]
+    Web[Web Dashboard] --> CDN
+    CDN --> Nginx[Nginx - Reverse Proxy]
+
+    subgraph Docker[Docker Host / K8s Pods]
+        Django[Django App - Gunicorn HTTP]
+        Daphne[Daphne - WebSocket Server]
+        Celery[Celery Workers]
+        CeleryBeat[Celery Beat - Cron]
+    end
+
+    Django --> PG[(PostgreSQL + PostGIS)]
+    Django --> Redis[(Redis - Caché/Colas/Sessions)]
+    Daphne --> Redis
+    Celery --> Redis
+    CeleryBeat --> PG
+
+    Django --> S3[S3 - Media/Images]
+    Django --> API_EXT[Google Maps API]
+    Django --> PAY[Stripe/Wompi API]
+```
+
+**Separación de servidores**:
+- **Gunicorn**: Sirve la API REST HTTP (DRF).
+- **Daphne**: Servidor ASGI dedicado para WebSockets (tracking, chat).
+- Ambos comparten el mismo código base pero corren en procesos distintos.
+
+---
+
+## Fase 3: Roles y Permisos (RBAC)
+
+Django implementa RBAC mediante **Grupos** y **Permisos** nativos (`django.contrib.auth`). Extendemos `AbstractUser` para añadir `phone`, `municipio`, `latitude`, `longitude` e `is_available` (domiciliarios).
+
+### Matriz de Permisos
+
+| Recurso | Cliente | Comercio | Domiciliario | Admin |
+| :--- | :--- | :--- | :--- | :--- |
+| `view_user_profile` (propio) | ✅ | ✅ | ✅ | ✅ |
+| `change_user_profile` (propio) | ✅ | ✅ | ✅ | ✅ |
+| `add_product` | ❌ | ✅ | ❌ | ✅ |
+| `change_product` (suyo) | ❌ | ✅ | ❌ | ✅ |
+| `view_orders` (global) | ❌ | ❌ | ❌ | ✅ |
+| `change_order_status` (propio) | ❌ | ✅ (Preparar) | ✅ (Recoger/Entregar) | ✅ |
+| `view_courier_location` | ❌ | ❌ | ❌ | ✅ |
+| `view_global_analytics` | ❌ | ❌ | ❌ | ✅ |
+
+---
+
+## Fase 4: Módulos del Sistema (Apps Django)
+
+| App Django | Responsabilidad | Modelos Clave |
+| :--- | :--- | :--- |
+| `apps.municipios` | Gestión de municipios/ciudades | `Municipio`, `MunicipioConfig` |
+| `apps.users` | Autenticación, perfiles, roles | `User`, `ClientProfile`, `CourierProfile`, `CommerceProfile` |
+| `apps.stores` | Comercios, categorías, horarios | `Store`, `Category`, `Schedule` |
+| `apps.products` | Productos, inventario, opciones | `Product`, `ProductOption`, `InventoryLog` |
+| `apps.orders` | Pedidos, máquina de estados | `Order`, `OrderItem`, `OrderStatusLog` |
+| `apps.payments` | Transacciones, split payments | `Transaction`, `PaymentMethod`, `Wallet` |
+| `apps.couriers` | Gestión de domiciliarios, asignación | `CourierLocation`, `CourierStatus`, `AssignmentLog` |
+| `apps.tracking` | Geocercas, historial de posiciones | `TrackingPoint`, `Route` |
+| `apps.notifications` | Push, SMS, Email (colas) | `Notification`, `PushToken` |
+| `apps.chat` | Mensajería en tiempo real | `Message`, `Conversation` |
+| `apps.reviews` | Calificaciones y disputas | `Review`, `Dispute` |
+| `apps.analytics` | Materialized views, reportes | `DailySalesReport`, `CourierPerformance` |
+
+**Conexiones clave**: `Order` apunta a `Store`, `ClientProfile`, `CourierProfile` y `Municipio`. `Transaction` apunta a `Order` y `User`.
+
+---
+
+## Fase 5: Experiencia de Usuario (UX)
+
+### User Journeys
+
+**Cliente (App Móvil)**:
+1. *Registro*: Número de teléfono (verificación SMS) o Google/Apple.
+2. *Home*: Geolocalización automática -> lista de tiendas cercanas con tiempo estimado.
+3. *Checkout*: Selección de dirección (mapa interactivo), pago con tarjeta/PSE/Nequi/Contraentrega.
+4. *Seguimiento*: Mapa en vivo (WebSocket) mostrando domiciliario y ETA.
+5. *Post-entrega*: Calificación y propina.
+
+**Comercio (Web Dashboard)**:
+1. *Pedido entrante*: Notificación sonora + impresión automática.
+2. *Preparación*: Botón "Listo" -> libera al pool de domiciliarios.
+3. *Historial*: Filtro por fecha y estado.
+
+**Domiciliario (App Móvil)**:
+1. *Conexión*: Botón "Conectado/Desconectado" (actualiza estado en Redis).
+2. *Asignación*: Popup con "Aceptar/Rechazar" (15 segundos).
+3. *Navegación*: Enlace a Google Maps con origen y destino pre-cargados.
+4. *Entrega*: Botón "Entregado" + foto opcional.
+
+### Wireframes Descriptivos
+- **Cliente**: Mapa en pantalla completa con tarjeta inferior con nombre del domiciliario, tiempo restante y botón de llamada (proxy).
+- **Comercio**: Tablero Kanban con 4 columnas: Nuevo, Preparando, Listo, Entregado.
+- **Domiciliario**: Mapa + lista de pedidos pendientes + ganancias del día.
+
+---
+
+## Fase 6: Algoritmo de Asignación de Pedidos
+
+A diferencia de un loop ingenuo en Python, el algoritmo usa **PostGIS** para filtrar domiciliarios cercanos directamente en la base de datos, y **Redis** para mantener el estado en memoria.
+
+### Pseudocódigo (Celery Beat cada 5 segundos)
+
+```python
+from django.contrib.gis.geos import Point
+from django.contrib.gis.db.models.functions import Distance
+from django.contrib.gis.measure import D
+from django.utils import timezone
+
+def batch_assign_pending_orders():
+    """
+    Ejecutado por Celery Beat cada 5 segundos.
+    Asigna pedidos READY en lote, optimizando varios a la vez.
+    """
+    pending_orders = Order.objects.filter(
+        status=Order.Status.READY,
+        assigned_at__isnull=True,
+        municipio_id=current_municipio_id  # Preparado para multi-tenant
+    ).select_related('store').order_by('created_at')[:20]  # Lote de 20
+
+    for order in pending_orders:
+        _assign_single_order(order)
+
+def _assign_single_order(order):
+    store_location = Point(order.store.lng, order.store.lat, srid=4326)
+
+    # 1. Buscar domiciliarios disponibles en un radio de 5 km usando PostGIS
+    couriers = CourierProfile.objects.filter(
+        is_available=True,
+        current_order_count__lt=2,
+        last_location__distance_lte=(store_location, D(km=5))
+    ).annotate(
+        distance=Distance('last_location', store_location)
+    ).order_by('distance')
+
+    if not couriers.exists():
+        # Reintentar con radio ampliado después de 30s sin asignación
+        if (timezone.now() - order.created_at).seconds > 30:
+            couriers = CourierProfile.objects.filter(
+                is_available=True,
+                current_order_count__lt=2,
+                last_location__distance_lte=(store_location, D(km=8))
+            ).annotate(
+                distance=Distance('last_location', store_location)
+            ).order_by('distance')
+        else:
+            return  # Esperar al próximo ciclo
+
+    # 2. Calcular puntaje compuesto (0-100)
+    best_courier = None
+    best_score = -1
+
+    for courier in couriers:
+        dist_km = courier.distance.km
+        score = 0.0
+
+        # Distancia (menos es mejor) - peso 0.4
+        score += (1 - dist_km / 8) * 40
+
+        # Calificación - peso 0.2
+        score += (courier.avg_rating / 5) * 20
+
+        # Carga actual - peso 0.2
+        score += (2 - courier.current_order_count) * 10
+
+        # Tiempo esperando - peso 0.1
+        score += min(courier.idle_minutes / 10, 10)
+
+        # Eficiencia histórica - peso 0.1
+        score += (courier.completion_rate or 0.9) * 10
+
+        if score > best_score:
+            best_score = score
+            best_courier = courier
+
+    # 3. Asignar con bloqueo atómico (evitar race conditions)
+    if best_courier:
+        updated = Order.objects.filter(
+            id=order.id,
+            status=Order.Status.READY
+        ).update(
+            courier=best_courier,
+            status=Order.Status.ASSIGNED,
+            assigned_at=timezone.now()
+        )
+
+        if updated:
+            # Publicar evento en Redis para WebSockets
+            _trigger_order_assigned(order.id, best_courier.user_id)
+```
+
+**Ventajas sobre la versión anterior**:
+- Filtrado espacial en la BD con `ST_DWithin` (no trae todos los couriers a Python).
+- Asignación por lotes (hasta 20 pedidos por ciclo).
+- `update` con filtro de status evita doble asignación.
+- Preparado para migrar a H3 (Uber) cuando el volumen lo requiera.
+
+### Optimización Futura (H3 Geospatial Indexing)
+Cuando se superen los 500 couriers concurrentes, reemplazar la consulta `ST_DWithin` por **H3** (hexagonal hierarchical geospatial indexing). Uber usa H3 para responder "todos los couriers en un radio de N celdas" en O(1). Implementación vía `h3-python`:
+
+```python
+import h3
+
+def find_nearby_couriers_h3(lat, lng, radius_km=5):
+    hex_center = h3.geo_to_h3(lat, lng, resolution=9)
+    hex_neighbors = h3.k_ring(hex_center, k=2)  # ~5km radius
+    # Consulta directa a Redis por conjunto de couriers en esas celdas
+    return redis.sunion([f'h3:{h}' for h in hex_neighbors])
+```
+
+---
+
+## Fase 7: Geolocalización y Seguimiento GPS
+
+### Pipeline de GPS (3 capas)
+
+1. **Ingesta**: El domiciliario envía coordenadas vía WebSocket (Django Channels) cada 3-5 segundos.
+2. **Procesamiento**: El servidor valida la posición (filtro de saltos bruscos >100m en 1s), la almacena en **Redis** (hash `courier:{id}:location`, TTL 60s) y la encola para escritura batch en PostgreSQL.
+3. **Distribución**: El canal `room_order_{id}` recibe la ubicación y la retransmite al cliente. La frecuencia se ajusta según la velocidad (>30 km/h -> 2s, <10 km/h -> 5s) para ahorrar batería.
+
+### Modelo de Datos
+
+```python
+from django.contrib.gis.db import models as gis_models
+
+class CourierLocation(models.Model):
+    courier = models.ForeignKey(CourierProfile, on_delete=models.CASCADE)
+    location = gis_models.PointField(srid=4326)  # Con índice GIST
+    speed = models.FloatField(null=True)  # km/h
+    heading = models.FloatField(null=True)  # grados
+    accuracy = models.FloatField(null=True)
+    battery_level = models.IntegerField(null=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['courier', '-timestamp']),
+            # Índice espacial GIST se agrega vía迁移
+        ]
+```
+
+### Visualización en React Native
+- `react-native-maps` con marcador animado (interpolación lineal entre posiciones).
+- Polilínea mostrando la ruta recorrida (últimos 10 puntos).
+- ETA mostrada en tarjeta inferior.
+
+---
+
+## Fase 8: Pagos
+
+### Integración con Pasarelas (Stripe + Wompi)
+
+**Flujo seguro**:
+1. El móvil solicita un `PaymentIntent` al backend Django.
+2. El backend crea el intent en Stripe/Wompi y devuelve el `client_secret`.
+3. El frontend tokeniza los datos de pago con el SDK de la pasarela (nunca pasan por nuestro servidor).
+4. La pasarela notifica al webhook de Django (`/api/v1/payments/webhook/`) confirmando el cargo.
+5. Django actualiza el estado del pedido y crea la transacción.
+
+**Contraentrega (Cash)**:
+- El domiciliario recibe el efectivo. La plataforma registra el pago y descuenta la comisión del saldo del comercio. El domiciliario debe consignar en la billetera virtual (se descuenta de sus ganancias).
+
+**Billetera Virtual**:
+- Modelo `Wallet` con saldo para domiciliarios.
+- Retiros programados cada 7 días (Transfiya o transferencia bancaria).
+- Bloqueo de fondos por disputas (2x el valor del pedido en disputa).
+
+---
+
+## Fase 9: Seguridad y Cumplimiento Legal
+
+### Seguridad Técnica (OWASP)
+
+| Amenaza | Mitigación en Django |
+| :--- | :--- |
+| **SQL Injection** | ORM de Django (querys parametrizados). Validación adicional con Serializers de DRF. |
+| **XSS** | Escape automático en templates Django; JSX escapa por defecto en React. |
+| **CSRF** | Middleware CSRF de Django; para API REST usamos tokens JWT con `CSRF_COOKIE_HTTPONLY`. |
+| **Rate Limiting** | `django-ratelimit` respaldado por Redis. |
+| **Autenticación** | JWT (`simplejwt`) con AccessToken (15min) y RefreshToken (7 días) en cookies HttpOnly + Secure. |
+| **Auditoría** | Señal `post_save` en acciones críticas (cambios de estado, pagos) escribe en `AuditLog` (tabla JSONB). |
+| **Encriptación PII** | `django-fernet-fields` para documentos y direcciones (AES-256). Llave maestra en AWS Secrets Manager. |
+| **Gestión de Secretos** | `python-decouple` + AWS Parameter Store para variables de entorno. |
+
+### Cumplimiento Legal (Colombia - Ley 1581 de 2012)
+
+- **Aviso de Privacidad**: Consentimiento explícito del usuario al registrarse.
+- **Finalidad**: Los datos se usan solo para la operación de domicilios.
+- **Derechos ARCO**: Endpoints `/api/v1/users/data-request/` para acceso, rectificación, cancelación y oposición.
+- **Habeas Data**: Política de retención de datos: 5 años después de la última actividad, luego anonimización.
+- **Términos y Condiciones**: Aceptación obligatoria al registrarse, con versión histórica.
+- **Protección de Menores**: Verificación de edad > 18 años para domiciliarios.
+
+---
+
+## Fase 10: Estrategia Offline
+
+La app móvil debe funcionar en zonas con conectividad limitada (municipios con cobertura de datos irregular).
+
+### Componentes Offline
+
+| Funcionalidad | Estrategia | Librería |
+| :--- | :--- | :--- |
+| **Catálogo de tiendas** | Cache local con versionado (stale-while-revalidate) | WatermelonDB |
+| **Carrito de compras** | Persistencia local + sincronización al reconectar | Zustand + redux-persist |
+| **Pedidos activos** | Cola de acciones offline, replay en orden | WatermelonDB sync |
+| **Tracking GPS** | Buffer local de coordenadas, batch upload al reconectar | AsyncStorage + cola |
+| **Mapas** | Tile caching offline con `react-native-maps` + MBTiles | Mapbox Offline |
+
+### Flujo de Sincronización
+
+1. App en línea -> datos frescos desde API.
+2. App pierde conexión -> muestra datos cacheados (WatermelonDB).
+3. Usuario realiza acción (crear pedido) -> se encola localmente.
+4. App reconecta -> replay de acciones en orden, resuelve conflictos (last-write-wins).
+5. Notificación de sincronización exitosa.
+
+---
+
+## Fase 11: Escalabilidad
+
+| Escenario | Estrategia |
+| :--- | :--- |
+| **1.000 usuarios concurrentes** | Un contenedor Django (Gunicorn 4 workers) + Daphne. PostgreSQL en instancia t3.medium. Redis local. |
+| **10.000 usuarios** | 3 contenedores Django (HPA en K8s si aplica). Read Replica PostgreSQL para consultas de catálogo. Redis Cluster. Celery (4 workers). |
+| **100.000 usuarios** | Separación de dominios: bases de datos independientes por app grupo (orders, catalog, users). Migración a microservicios. Sharding por `municipio_id`. |
+| **1.000.000 usuarios** | Citus (sharding PostgreSQL por `municipio_id`). Cache de catálogo en CDN. GraphQL Federation para agregación. |
+
+### Caché con Redis
+- `django.core.cache` con backend Redis.
+- Estrategia: cachear Store y Product por 5 minutos (TTL), invalidar vía señales `post_save`.
+- Sesiones de usuario y ubicaciones de domiciliarios en Redis.
+
+---
+
+## Fase 12: DevOps con Docker
+
+### Dockerfile Multi-Stage (Producción)
+
+```dockerfile
+# Stage 1: Build
+FROM python:3.11-slim AS builder
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --user -r requirements.txt
+
+# Stage 2: Runtime
+FROM python:3.11-slim
+WORKDIR /app
+COPY --from=builder /root/.local /root/.local
+COPY . .
+RUN python manage.py collectstatic --noinput
+
+# Servidor HTTP (Gunicorn)
+CMD ["gunicorn", "core.wsgi:application", "-w", "4", "--bind", "0.0.0.0:8000"]
+```
+
+### docker-compose.yml (Desarrollo)
+
+```yaml
+services:
+  db:
+    image: postgis/postgis:15-3.3
+    volumes: [pgdata:/var/lib/postgresql/data]
+  redis:
+    image: redis:7-alpine
+  django:
+    build: .
+    command: gunicorn core.wsgi:application --reload -w 4 -b 0.0.0.0:8000
+    ports: ["8000:8000"]
+    depends_on: [db, redis]
+  daphne:
+    build: .
+    command: daphne -b 0.0.0.0 -p 8001 core.asgi:application
+    ports: ["8001:8001"]
+    depends_on: [db, redis]
+  celery:
+    build: .
+    command: celery -A core worker -l info
+    depends_on: [db, redis]
+  celery-beat:
+    build: .
+    command: celery -A core beat -l info
+    depends_on: [db, redis]
+```
+
+**Separación clara**: `django` (HTTP/Gunicorn) y `daphne` (WebSocket/ASGI) corren en contenedores independientes.
+
+### CI/CD (GitHub Actions)
+
+1. Push a `develop` -> Corre tests (pytest) y linters (ruff, black).
+2. Merge a `main` -> Build Docker image, push a registry, deploy a staging.
+3. Aprobación manual -> despliegue a producción (Docker Compose o K8s).
+
+### Ambientes
+
+| Ambiente | Infraestructura | Propósito |
+| :--- | :--- | :--- |
+| **Desarrollo** | Docker Compose local | Desarrollo y pruebas unitarias |
+| **QA** | Docker Compose + datos anonimizados | Validación de features |
+| **Staging** | Misma config que producción | Pruebas de carga y humo |
+| **Producción** | Docker Compose (escalado) o EKS | Operación real |
+
+---
+
+## Fase 13: Monitoreo y Observabilidad
+
+### Stack de Observabilidad
+
+| Herramienta | Propósito | Implementación |
+| :--- | :--- | :--- |
+| **Sentry** | Captura de errores en producción | SDK `sentry-sdk` para Django, `@sentry/react-native` |
+| **Prometheus** | Métricas de sistema y negocio | `django-prometheus` expone métricas en `/metrics` |
+| **Grafana** | Dashboards de métricas | Dashboard pre-construido: latency, throughput, errores DB |
+| **Winston/Logfire** | Logging estructurado | JSON logs con `request_id`, `municipio_id`, `user_id` |
+| **Health Checks** | Endpoints de disponibilidad | `/health/` (DB, Redis, Celery) con `django-health-check` |
+
+### Dashboard de Métricas Clave (Grafana)
+- Tiempo promedio de respuesta de API (p50, p95, p99)
+- Pedidos por minuto
+- Domiciliarios activos vs conectados
+- Latencia de WebSockets
+- Tasa de errores HTTP 4xx/5xx
+- Uso de Redis y PostgreSQL
+
+---
+
+## Fase 14: Estrategia de Pruebas
+
+| Tipo | Herramienta | Cobertura Objetivo | Descripción |
+| :--- | :--- | :--- | :--- |
+| **Unitarias** | pytest + factory_boy | 80%+ | Modelos, serializers, validaciones, servicios |
+| **Integración** | pytest-django | 60%+ | Endpoints API, flujos de pedidos, pagos |
+| **Carga** | Locust | Escenarios críticos | Simular 500/1000/5000 usuarios concurrentes en asignación |
+| **E2E** | Playwright (Web) + Detox (Móvil) | Flujos principales | Registro -> Pedido -> Pago -> Seguimiento |
+
+### Comandos Base
+
+```bash
+# Unitarias e integración
+pytest --cov=apps --cov-report=html
+
+# Carga (Locust)
+locust -f tests/load/locustfile.py --host=https://staging.api.kinetik.app
+
+# E2E móvil (Detox)
+detox test -c android.emu.release
+```
+
+---
+
+## Fase 15: Disaster Recovery
+
+### Definiciones
+
+| Métrica | Objetivo |
+| :--- | :--- |
+| **RPO** (Pérdida máxima de datos) | 5 minutos |
+| **RTO** (Tiempo máximo de recuperación) | 1 hora |
+
+### Estrategia
+
+| Componente | Backup | Restauración |
+| :--- | :--- | :--- |
+| **PostgreSQL** | `pg_dump` automatizado cada 6h + WAL streaming continuo a S3. | Restaurar desde WAL a cualquier punto en los últimos 7 días. |
+| **Redis** | RDB snapshot cada hora a S3. | Pérdida aceptable: solo datos temporales (sesiones, posiciones). |
+| **Media S3** | Versionado de objetos S3 (retención 30 días). | Restaurar versión anterior del objeto. |
+| **Código y config** | Git + Secretos en AWS Parameter Store. | `git checkout` + deploy. |
+
+### Plan de Recuperación
+1. **Caída de BD**: Activar Read Replica como primaria (5 min).
+2. **Caída de servidor completo**: Levantar desde backup en nueva instancia (30 min).
+3. **Desastre regional**: Restaurar desde backups en región secundaria (1 hora).
+
+---
+
+## Fase 16: API REST (Django REST Framework)
+
+**Versionado**: `/api/v1/`. Autenticación: JWT Bearer en header `Authorization`.
+
+### Endpoints Principales
+
+| Método | Endpoint | ViewSet | Permisos |
+| :--- | :--- | :--- | :--- |
+| POST | `/auth/login/` | `ObtainTokenPairView` | AllowAny |
+| POST | `/auth/refresh/` | `RefreshTokenView` | AllowAny |
+| GET | `/stores/nearby/` | `StoreViewSet` (action `nearby`) | IsAuthenticated |
+| GET | `/stores/{id}/products/` | `ProductViewSet` | IsAuthenticated |
+| POST | `/orders/` | `OrderViewSet` (create) | IsAuthenticated (Client) |
+| GET | `/orders/{id}/track/` | WebSocket (Django Channels) | IsAuthenticated |
+| POST | `/payments/intent/` | `PaymentViewSet` | IsAuthenticated |
+| POST | `/payments/webhook/` | `WebhookView` | AllowAny (HMAC) |
+| PUT | `/orders/{id}/status/` | `OrderViewSet` (status update) | Commerce/Courier |
+| GET | `/health/` | `HealthCheckView` | AllowAny |
+
+**Códigos HTTP**: `200`, `201`, `400`, `401`, `403`, `404`, `422` (errores de negocio), `429` (rate limit).
+
+**Documentación**: DRF + `drf-spectacular` genera OpenAPI 3.0 (Swagger UI en `/docs/`).
+
+---
+
+## Fase 17: Plan de Migración a Multi-Tenant
+
+### Cuándo Migrar
+- Se superan los 50,000 pedidos/mes.
+- Se abre operación en un segundo municipio.
+- Se necesita aislar datos por regulación local.
+
+### Estrategia (Sin Downtime)
+
+```
+Fase 0 (Actual): Single-tenant con municipio_id en modelos
+       |
+Fase 1: Instalar django-pgschemas, crear schemas por municipio
+       |
+Fase 2: Migrar datos existentes al schema del municipio correspondiente
+       |
+Fase 3: Activar routing por subdominio (municipio1.app.com, municipio2.app.com)
+       |
+Fase 4: Desactivar columna municipio_id (redundante con schema)
+```
+
+### Pasos Técnicos
+
+1. Agregar `django-pgschemas` al proyecto.
+2. Definir `SHARED_APPS` (municipios, auth) y `TENANT_APPS` (stores, orders, etc.).
+3. Crear schema `public` con datos compartidos + un schema por municipio.
+4. Migrar datos: INSERT INTO tenant_schema.table SELECT * FROM public.table WHERE municipio_id = X.
+5. Configurar Nginx para routing por subdominio.
+6. Probar en staging con tráfico duplicado antes de cortar.
+
+---
+
+## Fase 18: Roadmap
+
+| Fase | Duración | Entregables Clave | Riesgos y Mitigación |
+| :--- | :--- | :--- | :--- |
+| **MVP (Mes 1-3)** | 12 semanas | Registro (teléfono), Catálogo CRUD, Carrito, Pago contraentrega, Panel comercio (Django Admin), Asignación manual, Georreferenciación básica. | Riesgo: Dependencia humana en asignación. Mitigación: Automatizar en V1. |
+| **V1 (Mes 4-6)** | 12 semanas | Algoritmo de asignación automática, Tracking GPS (WebSockets), Push notifications (FCM), Pago con tarjeta (Stripe), Chat básico, Calificaciones, Modo offline (catálogo). | Riesgo: Latencia WebSocket. Mitigación: Fallback a polling. |
+| **V2 (Mes 7-9)** | 12 semanas | Suscripciones Premium, Tarifas dinámicas, Dashboard Analytics (materialized views), Caché Redis agresivo, Read Replicas, Soporte multi-moneda. | Riesgo: Deuda técnica. Mitigación: Refactor con cobertura >85%. |
+| **V3 (Mes 10-12)** | 12 semanas | ML de recomendaciones, Predicción ETA (red neuronal), Sistema antifraude, Preparación multi-tenant, H3 geospatial indexing. | Riesgo: Complejidad ML. Mitigación: Modelos simples primero (regresión), luego deep learning. |
+
+---
+
+## Fase 19: Stack Tecnológico Justificado
+
+| Capa | Tecnología | Justificación |
+| :--- | :--- | :--- |
+| **Backend** | Django 5.x + Django REST Framework | ORM potente, Admin integrado, autenticación nativa, seguridad OWASP por defecto. Desarrollo 2x más rápido que Node.js para MVP. |
+| **WebSockets** | Django Channels + Daphne | Conexiones persistentes dentro del mismo proyecto. Fácil integración con lógica de pedidos. |
+| **Tareas Asíncronas** | Celery + Redis | Notificaciones, pagos, reportes. Integración nativa con Django. |
+| **Móvil** | React Native (Expo) | 90% código compartido iOS/Android. Hot-reloading, GPS, cámara, notificaciones nativas. |
+| **Base de Datos** | PostgreSQL 15 + PostGIS | ACID para transacciones. PostGIS para consultas espaciales eficientes. |
+| **Caché y Colas** | Redis (ElastiCache) | Ultra-rápido, soporta pub/sub, sesiones, colas Celery. |
+| **Dashboard Web** | React (Vite) + Tailwind CSS | Compilación < 1s. Maquetado rápido con Tailwind. |
+| **Infraestructura** | Docker Compose (MVP) -> EKS (escala) | Sin over-engineering inicial. Migración gradual. |
+| **Monitoreo** | Sentry + Prometheus + Grafana | Errores en tiempo real + métricas de infraestructura y negocio. |
+
+---
+
+## Entregable Final: Costos, Riesgos y Recomendaciones
+
+### Estimación de Costos (Mensuales) para 30,000 pedidos/mes
+
+| Servicio | Configuración | Costo Estimado (USD) |
+| :--- | :--- | :--- |
+| Servidor App | 2 x t3.medium (EC2 o VPS) | ~$120 |
+| PostgreSQL | db.r5.large (Multi-AZ) | ~$350 |
+| Redis | cache.t3.medium | ~$60 |
+| S3 + CloudFront | Assets, backups, media | ~$50 |
+| Google Maps API | 30,000 pedidos/mes | ~$250 |
+| Monitoreo (Sentry) | Team plan | ~$30 |
+| Stripe/Wompi | Comisiones 2.9% + $0.30 | Variable (~$870 en 30k pedidos) |
+| **Total Infraestructura** | (sin pasarela) | **~$860 USD/mes** |
+| **Total con Stripe** | Estimado 30k pedidos x $15,000 COP | **~$1,730 USD/mes** |
+
+*Ahorro*: Reserved Instances para BD (1 año) ahorra ~30%. Aumento a K8s añade ~$150-300/mes (plano de control + nodos).
+
+### Comparativa: Docker Compose vs K8s para MVP
+
+| Aspecto | Docker Compose | Kubernetes (EKS) |
+| :--- | :--- | :--- |
+| **Costo mensual** | ~$860 | ~$1,200-$1,500 |
+| **Complejidad operativa** | Baja | Alta |
+| **Auto-scaling** | Manual | Automático (HPA) |
+| **Rolling updates** | Manual | Automático |
+| **Recomendado hasta** | 500 pedidos/día | 500+ pedidos/día |
+
+### Riesgos Críticos y Mitigación
+
+| Riesgo | Impacto | Mitigación |
+| :--- | :--- | :--- |
+| **Caída de WebSockets** | Pérdida de tracking en vivo | Fallback a polling (cada 5s) si el socket no responde. |
+| **Fraude con tarjetas** | Chargebacks | 3DS (Stripe) + límites de transacción para usuarios nuevos. |
+| **Escasez de domiciliarios** | Pedidos no asignados | Tarifas dinámicas para incentivar conexión. Cola de espera con notificación al cliente. |
+| **Pérdida de datos** | Insatisfacción del cliente | RPO 5 min (WAL streaming), RTO 1 hora. |
+| **Baja adopción de domiciliarios** | Sin cobertura | Onboarding con bono de bienvenida. Programa de referidos. |
+| **Deuda técnica por crecimiento** | Dificultad de mantenimiento | Code review estricto, tests obligatorios, cobertura >80%. |
+
+### Recomendaciones Técnicas Finales
+
+1. **Arrancar con Docker Compose**: Un solo servidor con Docker Compose para MVP. Migrar a K8s solo cuando se superen 500 pedidos/día.
+2. **Django Admin como panel interno**: Ahorra meses de desarrollo frontend para soporte y administración.
+3. **Sentry desde el Día 1**: Captura errores de producción y los agrupa por causa raíz.
+4. **Test de Carga con Locust**: Simular 500 usuarios concurrentes en el endpoint de asignación antes de lanzar.
+5. **Base de Datos**: Particionamiento por mes en `created_at` para pedidos (tablas hijas mensuales).
+6. **Preparación Multi-tenant**: Mantener `municipio_id` en todos los modelos desde el inicio, aunque no se use hasta el Mes 9.
+
+---
+
+### Cómo Generar el PDF Final
+
+1. Copie todo este contenido en un archivo llamado `PLATAFORMA_DOMICILIOS_DJANGO_RN.md`.
+2. Abra el archivo con **Typora**, **Obsidian** o **VS Code** (extensión `Markdown PDF`).
+3. Seleccione "Exportar a PDF" o "Print to PDF".
+4. Ajuste tamaño A4 y márgenes de 2.54 cm (1 pulgada) para aspecto profesional.
+
+**Nota**: Los diagramas Mermaid se renderizan correctamente en las herramientas mencionadas.
+
+---
+
+*Documento elaborado por Arquitectura de Software - Consultoría Senior. Versión 3.0 (Django + React Native + Docker). Preparado para escalar desde 1 municipio hasta múltiples ciudades.*
