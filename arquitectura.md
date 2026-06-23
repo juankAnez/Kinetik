@@ -110,41 +110,51 @@ flowchart TD
   /backend                    # Django project
     /core                     # Configuración central
       settings/
-        base.py
-        dev.py
-        production.py
-      asgi.py
-      wsgi.py
-      urls.py
-      celery.py
-    /apps                     # Aplicaciones Django
-      /municipios
-      /users
-      /stores
-      /products
-      /orders
-      /payments
-      /couriers
-      /tracking
-      /notifications
-      /chat
-      /reviews
-      /analytics
+        __init__.py
+        base.py               # Settings compartidos (DB, Redis, Celery, JWT, CORS, Channels)
+        dev.py                # Debug=True, consola email, CORS abierto
+        production.py         # SSL, HSTS, S3, Sentry
+        test.py               # SQLite :memory:, mock GDAL, channels in-memory
+      __init__.py
+      asgi.py                 # ProtocolTypeRouter(HTTP + WebSocket)
+      celery.py               # Celery app + autodiscover_tasks
+      routing.py              # WebSocket routing (TrackingConsumer, ChatConsumer, NotificationConsumer)
+      urls.py                 # Router raíz: /api/v1/{auth,stores,...}, /admin/, /api/docs/, /health/
+      wsgi.py                 # WSGI entry point
+    /apps                     # Aplicaciones Django (13 apps)
+      /municipios             # Catálogo de municipios (read-only público)
+      /users                  # Auth, registro, perfiles (cliente/comercio/domiciliario)
+      /stores                 # Tiendas, categorías, horarios, direcciones de entrega
+      /products               # Productos por tienda con opciones configurables
+      /orders                 # Órdenes con máquina de 8 estados
+      /payments               # Métodos de pago, transacciones, wallet domiciliarios
+      /couriers               # Asignación inteligente (scoring), disponibilidad
+      /tracking               # GPS en tiempo real (WebSocket + persistencia)
+      /notifications          # Notificaciones push e in-app (WebSocket)
+      /chat                   # Conversaciones por pedido (WebSocket)
+      /reviews                # Calificaciones y disputas
+      /analytics              # Dashboard admin + reportes diarios (Celery)
+      /tasks                  # Tareas asíncronas Celery (sin modelos/vistas)
     /shared                   # Código compartido
-      /exceptions
-      /mixins
-      /pagination
-      /permissions
-      /filters
+      exceptions/
+        handlers.py           # Manejador global de errores DRF
+      permissions/            # (reservado)
+      filters/                # (reservado)
+      mixins/                 # (reservado)
+      pagination.py           # StandardPagination (page_size=20)
     /templates
     /static
-    manage.py
+    conftest.py               # Fixtures compartidos de pytest
+    manage.py                 # Django management CLI
+    pytest.ini                # Configuración de pytest
+    pytest_gis_patch.py       # Mock de PostGIS para tests sin GDAL
+    .pytest_cache/
     requirements/
       base.txt
       dev.txt
       production.txt
 
-  /mobile                     # React Native (Expo)
+  /mobile                     # React Native (Expo) — frontend móvil
     /src
       /modules
         /auth
@@ -162,7 +172,7 @@ flowchart TD
         /offline
       App.tsx
 
-  /web                        # React + Vite (Dashboard)
+  /web                        # React + Vite (Dashboard) — frontend web
     /src
       /components
       /pages
@@ -175,10 +185,6 @@ flowchart TD
       docker-compose.yml
       Dockerfile
       nginx.conf
-    production/
-      docker-compose.yml
-      Dockerfile
-      nginx.conf
       .env.example
 
   /scripts                    # Scripts de automatización
@@ -186,17 +192,271 @@ flowchart TD
     deploy.sh
     seed_data.py
 
-  /docs                       # Documentación
-    funcionalidad.md
-    arquitectura.md
-    planificacion.txt
+  arquitectura.md             # Este documento
+  funcionalidad.md            # Documentación funcional
+  planificacion.txt           # Planificación del proyecto
+  README.md                   # README del proyecto
+```
 
-  /tests                      # Pruebas
-    /unit
-    /integration
-    /load
-      locustfile.py
-    /e2e
+---
+
+### 4.1 Estructura Detallada por Módulo
+
+Cada app sigue la misma convención de nomenclatura para localizar archivos rápidamente.
+
+##### Convención de Archivos por App
+
+| Archivo | Propósito |
+| :--- | :--- |
+| `models.py` | Definición de modelos (ORM) |
+| `serializers.py` | Serializadores DRF (validación + transformación) |
+| `views.py` | Vistas / ViewSets (lógica de endpoints) |
+| `urls.py` | Enrutamiento de endpoints |
+| `services.py` | Lógica de negocio compleja (solo couriers) |
+| `consumers.py` | WebSocket consumers (solo tracking, chat, notifications) |
+| `admin.py` | Configuración del panel admin de Django |
+| `tests/` | Tests de la app |
+
+---
+
+#### `users` — Autenticación y perfiles
+
+```
+apps/users/
+├── models.py          # User(AbstractUser), ClientProfile, CourierProfile, CommerceProfile
+├── serializers.py     # UserSerializer, RegisterSerializer, ClientProfileSerializer,
+│                      # CourierProfileSerializer, CommerceProfileSerializer
+├── views.py           # RegisterView(CreateAPIView), UserViewSet(ReadOnlyModelViewSet) → me()
+├── urls.py            # /auth/login/ (TokenObtainPair), /auth/refresh/ (TokenRefresh),
+│                      # /auth/register/ (RegisterView), /auth/me/ (UserViewSet)
+├── admin.py
+└── tests/
+    └── test_auth.py   # TestRegister (6 tests), TestLogin (3 tests), TestProfile (4 tests)
+```
+
+**Endpoints:** `POST /auth/register/`, `POST /auth/login/`, `POST /auth/refresh/`, `GET|PATCH /auth/me/`
+
+---
+
+#### `municipios` — Catálogo de municipios
+
+```
+apps/municipios/
+├── models.py          # Municipio (codigo_dane, nombre, centro_lat/lng, radio_km, activo)
+├── serializers.py     # MunicipioSerializer
+├── views.py           # MunicipioViewSet(ReadOnlyModelViewSet) → solo activo=True
+├── urls.py            # /municipios/ (router)
+├── admin.py
+└── tests/
+    └── test_municipios.py  # TestMunicipioList (2 tests)
+```
+
+**Endpoints:** `GET /municipios/`
+
+---
+
+#### `stores` — Tiendas, categorías y direcciones
+
+```
+apps/stores/
+├── models.py          # StoreCategory, Store(PointField), Schedule, Address(PointField)
+├── serializers.py     # StoreSerializer, StoreDetailSerializer, AddressSerializer
+├── views.py           # StoreViewSet(ReadOnlyModelViewSet) → nearby(), AddressViewSet(ModelViewSet)
+├── urls.py            # /stores/ (StoreViewSet), /stores/addresses/ (AddressViewSet)
+└── admin.py
+```
+
+**Endpoints:** `GET /stores/`, `GET /stores/{id}/`, `GET /stores/nearby/?lat=&lng=&radius=`, `GET|POST /stores/addresses/`
+
+---
+
+#### `products` — Productos por tienda
+
+```
+apps/products/
+├── models.py          # ProductCategory, Product, ProductOption(JSON), InventoryLog
+├── serializers.py     # ProductCategorySerializer, ProductSerializer, ProductDetailSerializer
+├── views.py           # ProductViewSet(ReadOnlyModelViewSet) → filter by ?store=, solo is_available
+├── urls.py            # /products/ (router)
+└── admin.py
+```
+
+**Endpoints:** `GET /products/?store=`
+
+---
+
+#### `orders` — Ciclo de vida de pedidos
+
+```
+apps/orders/
+├── models.py          # Order(8 estados), OrderItem, OrderStatusLog
+├── serializers.py     # OrderSerializer, OrderCreateSerializer, OrderStatusSerializer
+├── views.py           # OrderViewSet(ModelViewSet) → status(), active()
+├── urls.py            # /orders/ (router)
+└── admin.py
+```
+
+**Endpoints:** `GET|POST /orders/`, `GET|PATCH /orders/{id}/`, `POST /orders/{id}/status/`, `GET /orders/active/`
+
+**Queryset por rol:** CLIENTE → `client=user`, COMERCIO → `store__commerceprofile__user`, DOMICILIARIO → `courier=user`
+
+---
+
+#### `payments` — Métodos de pago, transacciones y wallet
+
+```
+apps/payments/
+├── models.py          # PaymentMethod, Transaction, Wallet
+├── serializers.py     # PaymentMethodSerializer, TransactionSerializer, PaymentIntentSerializer
+├── views.py           # PaymentMethodViewSet(ModelViewSet), TransactionViewSet(ReadOnly),
+│                      # PaymentViewSet(ViewSet) → intent(), webhook()
+├── urls.py            # /payments/methods/, /payments/transactions/, /payments/intent/,
+│                      # /payments/webhook/
+└── admin.py
+```
+
+**Endpoints:** `GET|POST /payments/methods/`, `GET /payments/transactions/`, `POST /payments/intent/`, `POST /payments/webhook/`
+
+---
+
+#### `couriers` — Disponibilidad, asignación y ubicación
+
+```
+apps/couriers/
+├── models.py          # CourierLocation(PointField), CourierStatus, AssignmentLog
+├── views.py           # CourierViewSet(ViewSet) → toggle_availability(), accept_order(), reject_order()
+├── urls.py            # /couriers/ (router)
+├── services.py        # AssignmentService → batch_assign_pending_orders(), _find_best_courier() (scoring)
+└── admin.py
+```
+
+**Endpoints:** `POST /couriers/toggle_availability/`, `POST /couriers/accept_order/`, `POST /couriers/reject_order/`
+
+**Lógica clave:** `AssignmentService` asigna pedidos con scoring ponderado (distancia 40%, rating 20%, carga 20%, tiempo inactivo 10%, tasa completados 10%)
+
+---
+
+#### `tracking` — GPS en tiempo real
+
+```
+apps/tracking/
+├── models.py          # TrackingPoint(PointField), Route(polyline)
+├── serializers.py     # TrackingPointSerializer
+├── views.py           # TrackingViewSet(ReadOnlyModelViewSet) → order_history/?order_id=
+├── urls.py            # /tracking/ (router)
+├── consumers.py       # TrackingConsumer → ws/tracking/<order_id>/ (update_location + broadcast)
+└── admin.py
+```
+
+**Endpoints:** `GET /tracking/order_history/?order_id=`
+**WebSocket:** `ws:///tracking/<order_id>/`
+
+---
+
+#### `notifications` — Notificaciones push e in-app
+
+```
+apps/notifications/
+├── models.py          # PushToken, Notification(tipos: ORDER_UPDATE, ASSIGNMENT, PROMO, SYSTEM)
+├── serializers.py     # NotificationSerializer, MarkReadSerializer
+├── views.py           # NotificationViewSet(ReadOnlyModelViewSet) → mark_read(), unread_count()
+├── urls.py            # /notifications/ (router)
+├── consumers.py       # NotificationConsumer → ws/notifications/ (grupo personal por user)
+└── admin.py
+```
+
+**Endpoints:** `GET /notifications/`, `POST /notifications/mark_read/`, `GET /notifications/unread_count/`
+**WebSocket:** `ws:///notifications/`
+
+---
+
+#### `chat` — Conversaciones por pedido
+
+```
+apps/chat/
+├── models.py          # Conversation(OneToOne→Order, M2M participants), Message
+├── serializers.py     # ConversationSerializer, MessageSerializer
+├── views.py           # ConversationViewSet(ReadOnlyModelViewSet) → messages()
+├── urls.py            # /chat/conversations/ (router)
+└── consumers.py       # ChatConsumer → ws/chat/<conversation_id>/ (solo participantes)
+```
+
+**Endpoints:** `GET /chat/conversations/`, `GET /chat/conversations/{id}/messages/`
+**WebSocket:** `ws:///chat/<conversation_id>/`
+
+---
+
+#### `reviews` — Calificaciones y disputas
+
+```
+apps/reviews/
+├── models.py          # Review(OneToOne→Order, store_rating, courier_rating), Dispute
+├── serializers.py     # ReviewSerializer, DisputeSerializer
+├── views.py           # ReviewViewSet(ModelViewSet), DisputeViewSet(ModelViewSet)
+├── urls.py            # /reviews/ (router), /reviews/disputes/ (router)
+└── admin.py
+```
+
+**Endpoints:** `GET|POST /reviews/`, `GET|POST /reviews/disputes/`
+
+---
+
+#### `analytics` — Dashboard y estadísticas (solo admin)
+
+```
+apps/analytics/
+├── models.py          # DailySalesReport, CourierPerformance, MunicipioStats
+├── serializers.py     # DashboardSerializer
+├── views.py           # AnalyticsViewSet(ViewSet) → dashboard()
+├── urls.py            # /analytics/ (router)
+└── admin.py
+```
+
+**Endpoints:** `GET /analytics/dashboard/` (IsAdminUser)
+
+---
+
+#### `tasks` — Tareas Celery asíncronas
+
+```
+apps/tasks/
+├── celery_tasks.py    # dispatch_order_assignment, batch_assign_orders, send_push_notification,
+│                      # cleanup_expired_sessions, generate_daily_reports, courier_heartbeat_check
+└── apps.py            # Configuración de la app
+```
+
+**Schedule (Celery Beat):** `batch_assign_orders` cada 5s, `courier_heartbeat_check` cada 60s, `cleanup_expired_sessions` cada 1h, `generate_daily_reports` cada 12h
+
+---
+
+#### Core — Configuración central
+
+```
+core/
+├── settings/
+│   ├── base.py        # Settings compartidos (DB, Redis, Celery, JWT, CORS, Channels)
+│   ├── dev.py         # Debug=True, consola email, CORS abierto
+│   ├── production.py  # SSL, HSTS, S3, Sentry
+│   └── test.py        # SQLite :memory:, mock GDAL, channels in-memory
+├── urls.py            # Router raíz: /api/v1/{auth,stores,products,orders,payments,
+│                      #   couriers,tracking,notifications,chat,reviews,analytics,municipios}
+│                      # /admin/, /api/schema/, /api/docs/, /health/
+├── asgi.py            # ProtocolTypeRouter(HTTP + WebSocket)
+├── wsgi.py            # WSGI entry point
+├── celery.py          # Celery app + autodiscover_tasks
+└── routing.py         # WebSocket routing: TrackingConsumer, ChatConsumer, NotificationConsumer
+```
+
+#### Shared — Componentes reutilizables
+
+```
+shared/
+├── pagination.py          # StandardPagination(PageNumberPagination, page_size=20)
+├── exceptions/
+│   └── handlers.py        # custom_exception_handler() → errores consistentes DRF
+├── permissions/           # (reservado para permisos personalizados)
+├── filters/               # (reservado para filtros personalizados)
+└── mixins/                # (reservado para mixins personalizados)
 ```
 
 ---
