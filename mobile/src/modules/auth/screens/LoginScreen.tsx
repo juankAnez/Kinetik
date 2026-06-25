@@ -45,7 +45,29 @@ export default function LoginScreen({ navigation }: Props) {
   };
 
   const renderForm = () => (
-    <View className="w-full max-w-md px-6 py-8 md:px-8 bg-white rounded-3xl shadow-2xl border border-slate-100/50">
+    <View
+      className="px-6 py-8 md:px-8 bg-white border border-slate-100/50"
+      style={{
+        width: "100%",
+        maxWidth: 448,
+        borderRadius: 24,
+        backgroundColor: "#FFFFFF",
+        borderWidth: 1,
+        borderColor: "rgba(241, 245, 249, 0.5)",
+        ...Platform.select({
+          web: {
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+          },
+          default: {
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.25,
+            shadowRadius: 16,
+            elevation: 24,
+          },
+        }),
+      }}
+    >
       {/* Brand Header */}
       <View className="items-center mb-8">
         <View className="w-14 h-14 bg-[#6C4CF1] rounded-2xl items-center justify-center shadow-lg shadow-[#6C4CF1]/20 mb-4">
@@ -71,9 +93,17 @@ export default function LoginScreen({ navigation }: Props) {
             name="username"
             render={({ field: { onChange, onBlur, value } }) => (
               <View
-                className={`flex-row items-center border rounded-xl px-3 bg-slate-50/50 ${
-                  isUsernameFocused ? "border-[#6C4CF1] bg-white" : "border-slate-200"
-                }`}
+                className="flex-row items-center border rounded-xl px-3"
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  borderWidth: 1,
+                  borderRadius: 12,
+                  paddingHorizontal: 12,
+                  height: 48,
+                  backgroundColor: isUsernameFocused ? "#FFFFFF" : "rgba(248, 250, 252, 0.5)",
+                  borderColor: isUsernameFocused ? "#6C4CF1" : "#E2E8F0",
+                }}
               >
                 <Feather
                   name="user"
@@ -82,7 +112,14 @@ export default function LoginScreen({ navigation }: Props) {
                   style={{ marginRight: 8 }}
                 />
                 <TextInput
-                  className="flex-1 py-3 text-base text-[#111827]"
+                  className="flex-1 text-base text-[#111827]"
+                  style={{
+                    flex: 1,
+                    height: "100%",
+                    fontSize: 16,
+                    color: "#111827",
+                    outlineStyle: "none",
+                  } as any}
                   placeholder="name@example.com"
                   placeholderTextColor="#94A3B8"
                   onBlur={() => {
@@ -117,9 +154,17 @@ export default function LoginScreen({ navigation }: Props) {
             name="password"
             render={({ field: { onChange, onBlur, value } }) => (
               <View
-                className={`flex-row items-center border rounded-xl px-3 bg-slate-50/50 ${
-                  isPasswordFocused ? "border-[#6C4CF1] bg-white" : "border-slate-200"
-                }`}
+                className="flex-row items-center border rounded-xl px-3"
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  borderWidth: 1,
+                  borderRadius: 12,
+                  paddingHorizontal: 12,
+                  height: 48,
+                  backgroundColor: isPasswordFocused ? "#FFFFFF" : "rgba(248, 250, 252, 0.5)",
+                  borderColor: isPasswordFocused ? "#6C4CF1" : "#E2E8F0",
+                }}
               >
                 <Feather
                   name="lock"
@@ -128,7 +173,14 @@ export default function LoginScreen({ navigation }: Props) {
                   style={{ marginRight: 8 }}
                 />
                 <TextInput
-                  className="flex-1 py-3 text-base text-[#111827]"
+                  className="flex-1 text-base text-[#111827]"
+                  style={{
+                    flex: 1,
+                    height: "100%",
+                    fontSize: 16,
+                    color: "#111827",
+                    outlineStyle: "none",
+                  } as any}
                   placeholder="Tu contraseña"
                   placeholderTextColor="#94A3B8"
                   onBlur={() => {
@@ -257,24 +309,57 @@ export default function LoginScreen({ navigation }: Props) {
 
   if (isLargeScreen) {
     return (
-      <View className="flex-1 flex-row items-stretch bg-slate-50">
+      <View
+        style={{
+          flex: 1,
+          flexDirection: "row",
+          alignItems: "stretch",
+          width: "100%",
+          height: (Platform.OS === "web" ? "100vh" : "100%") as any,
+          backgroundColor: "#F8FAFC",
+        }}
+      >
         {/* Left Column: Brand & Illustration */}
-        <View className="flex-1 bg-[#6C4CF1] items-center justify-center p-12 relative overflow-hidden">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "#6C4CF1",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 48,
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
           <LinearGradient
             colors={["#6C4CF1", "#8B5CF6"]}
             style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}
           />
           {/* Decorative circles */}
           <View
-            className="absolute rounded-full bg-white/5"
-            style={{ top: -100, left: -100, width: 400, height: 400 }}
+            style={{
+              position: "absolute",
+              borderRadius: 9999,
+              backgroundColor: "rgba(255, 255, 255, 0.05)",
+              top: -100,
+              left: -100,
+              width: 400,
+              height: 400,
+            }}
           />
           <View
-            className="absolute rounded-full bg-white/5"
-            style={{ bottom: -150, right: -150, width: 500, height: 500 }}
+            style={{
+              position: "absolute",
+              borderRadius: 9999,
+              backgroundColor: "rgba(255, 255, 255, 0.05)",
+              bottom: -150,
+              right: -150,
+              width: 500,
+              height: 500,
+            }}
           />
 
-          <View className="w-full max-w-lg items-center z-10">
+          <View style={{ width: "100%", maxWidth: 512, alignItems: "center", zIndex: 10 }}>
             <Image
               source={require("../../../../assets/delivery_illustration.png")}
               style={{ width: 350, height: 350, resizeMode: "contain" }}
@@ -290,7 +375,15 @@ export default function LoginScreen({ navigation }: Props) {
         </View>
 
         {/* Right Column: Form */}
-        <View className="flex-1 items-center justify-center p-8 bg-slate-50">
+        <View
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 32,
+            backgroundColor: "#F8FAFC",
+          }}
+        >
           {renderForm()}
         </View>
       </View>
@@ -300,18 +393,18 @@ export default function LoginScreen({ navigation }: Props) {
   return (
     <LinearGradient
       colors={["#F8FAFC", "#EEF2FF"]}
-      className="flex-1"
+      style={{ flex: 1 }}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
+        style={{ flex: 1 }}
       >
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
           showsVerticalScrollIndicator={false}
         >
           {/* Mobile View */}
-          <View className="flex-1 items-center justify-center p-4">
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 16 }}>
             {renderForm()}
           </View>
         </ScrollView>
