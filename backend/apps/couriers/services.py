@@ -33,14 +33,20 @@ class AssignmentService:
             pass
 
     def _assign_single_order(self, order):
-        store_location = Point(order.store.location.x, order.store.location.y, srid=4326)
+        loc = order.store.location
+        if isinstance(loc, str):
+            coords = loc.replace("POINT (", "").replace(")", "").split()
+            lng, lat = float(coords[0]), float(coords[1])
+        else:
+            lng, lat = loc.x, loc.y
+        store_location = Point(lng, lat, srid=4326)
         radius = 5
 
-        courier = self._find_best_courier(store_location, radius)
+        courier, score = self._find_best_courier(store_location, radius)
 
         if not courier and (timezone.now() - order.created_at).seconds > 30:
             radius = 8
-            courier = self._find_best_courier(store_location, radius)
+            courier, score = self._find_best_courier(store_location, radius)
 
         if not courier:
             return
@@ -63,7 +69,7 @@ class AssignmentService:
                 AssignmentLog.objects.create(
                     order=order,
                     courier=courier,
-                    score=0,
+                    score=score,
                     radius_used=radius,
                 )
                 self._trigger_assignment_event(order.id, courier.id)
@@ -82,7 +88,7 @@ class AssignmentService:
         ).select_related("courier_profile")
 
         best_courier = None
-        best_score = -1
+        best_score = -1.0
 
         for courier in couriers_qs:
             profile = courier.courier_profile
@@ -99,7 +105,7 @@ class AssignmentService:
                 best_score = score
                 best_courier = courier
 
-        return best_courier
+        return best_courier, best_score if best_courier else 0.0
 
     def _trigger_assignment_event(self, order_id, courier_id):
         from channels.layers import get_channel_layer

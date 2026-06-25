@@ -14,7 +14,7 @@
 | Mobile React Native (Expo) | 🟡 En desarrollo | ~40% (Auth, Catalog, Cart, Orders, infraestructura completa) |
 | Web Dashboard React (Vite) | ❌ No iniciado | 0% |
 | Scripts de automatización | 🟡 Parcial | Solo `seed_data` creado |
-| Tests automatizados | ✅ 119 tests | 118 passed, 1 xfailed |
+| Tests automatizados | ✅ 122 tests | 120 passed, 2 xfailed |
 
 ---
 
@@ -50,7 +50,7 @@
 
 ---
 
-## 3. Tests — 119 total
+## 3. Tests — 122 total
 
 | App | Tests | Cobertura |
 |---|---|---|
@@ -58,16 +58,16 @@
 | `municipios` | 6 | CRUD admin, list público |
 | `stores` | 8 | CRUD, nearby, addresses, filtros |
 | `products` | 5 | CRUD, filtros, availability |
-| `orders` | 24 | Ciclo completo, transiciones, permisos por rol, timestamps |
+| `orders` | 26 | Ciclo completo, transiciones (delivered/cancelled), ganancias en wallet, permisos, timestamps |
 | `payments` | 17 | PaymentMethod CRUD, intent, webhook, transactions, wallet |
 | `notifications` | 8 | List, mark_read, unread_count, aislamiento |
 | `chat` | 8 | REST (conversaciones, mensajes) + WebSocket |
 | `reviews` | 11 | Review CRUD, rating update, dispute CRUD |
 | `analytics` | 11 | Dashboard, DailySales, CourierPerformance, MunicipioStats |
-| `couriers` | (integrados en orders) | AssignmentService probado vía order lifecycle |
+| `couriers` | 1 | Coordenadas y cálculo de score (AssignmentLog persistido con score real) |
 | `tracking` | (integrados en WS tests) | TrackingPoints + Routes vía REST y WebSocket |
 
-**Resultado: 118 passed ✅, 1 xfailed ⚠️ (PostGIS nearby requiere BD con extensión espacial)**
+**Resultado: 120 passed ✅, 2 xfailed ⚠️ (Pruebas de cercanía/PostGIS requieren base de datos espacial)**
 
 ---
 

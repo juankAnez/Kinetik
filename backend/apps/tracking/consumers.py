@@ -83,7 +83,7 @@ class TrackingConsumer(AsyncWebsocketConsumer):
             return (
                 order.client == user
                 or order.courier == user
-                or order.store.commerceprofile_set.filter(user=user).exists()
+                or (hasattr(order.store, "commerceprofile") and order.store.commerceprofile.user == user)
                 or user.is_staff
             )
         except Order.DoesNotExist:

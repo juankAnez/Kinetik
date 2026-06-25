@@ -56,12 +56,28 @@ class OrderViewSet(viewsets.ModelViewSet):
             order.picked_up_at = timezone.now()
         elif new_status == Order.Status.DELIVERED:
             order.delivered_at = timezone.now()
+            if order.courier:
+                # Update CourierProfile
+                profile = order.courier.courier_profile
+                profile.current_order_count = max(0, profile.current_order_count - 1)
+                profile.total_deliveries += 1
+                profile.total_earned += order.courier_earnings
+                profile.save(update_fields=["current_order_count", "total_deliveries", "total_earned"])
+
+                # Update Wallet
+                from apps.payments.models import Wallet
+                from django.db import transaction
+                with transaction.atomic():
+                    wallet, created = Wallet.objects.select_for_update().get_or_create(user=order.courier)
+                    wallet.balance += order.courier_earnings
+                    wallet.save(update_fields=["balance"])
         elif new_status == Order.Status.CANCELLED:
             order.cancelled_at = timezone.now()
             order.cancel_reason = serializer.validated_data.get("cancel_reason", "")
             if order.courier:
-                order.courier.courier_profile.current_order_count -= 1
-                order.courier.courier_profile.save()
+                profile = order.courier.courier_profile
+                profile.current_order_count = max(0, profile.current_order_count - 1)
+                profile.save(update_fields=["current_order_count"])
 
         order.save()
 

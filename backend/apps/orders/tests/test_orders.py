@@ -276,6 +276,53 @@ class TestOrderStatusTransitions:
         response = api_client.post(f"{API}/orders/{order_id}/status/", {"status": "ACCEPTED"}, format="json")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
+    def test_delivered_updates_courier_profile_and_wallet(self, cliente_client, store, municipio, domiciliario_user):
+        from apps.payments.models import Wallet
+        _create_order(cliente_client, store, municipio)
+        order = Order.objects.latest("id")
+        order.courier = domiciliario_user
+        order.courier_earnings = 1500.00
+        order.save()
+
+        profile = domiciliario_user.courier_profile
+        profile.current_order_count = 1
+        profile.save()
+
+        response = cliente_client.post(
+            f"{API}/orders/{order.id}/status/",
+            {"status": Order.Status.DELIVERED},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        profile.refresh_from_db()
+        assert profile.current_order_count == 0
+        assert profile.total_deliveries == 1
+        assert profile.total_earned == 1500.00
+
+        wallet = Wallet.objects.get(user=domiciliario_user)
+        assert wallet.balance == 1500.00
+
+    def test_cancelled_decrements_current_order_count(self, cliente_client, store, municipio, domiciliario_user):
+        _create_order(cliente_client, store, municipio)
+        order = Order.objects.latest("id")
+        order.courier = domiciliario_user
+        order.save()
+
+        profile = domiciliario_user.courier_profile
+        profile.current_order_count = 1
+        profile.save()
+
+        response = cliente_client.post(
+            f"{API}/orders/{order.id}/status/",
+            {"status": Order.Status.CANCELLED},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        profile.refresh_from_db()
+        assert profile.current_order_count == 0
+
 
 class TestOrderTimestamps:
     @patch("apps.orders.views.dispatch_order_assignment")
