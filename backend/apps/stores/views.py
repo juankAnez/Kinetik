@@ -11,6 +11,7 @@ from .serializers import StoreListSerializer, StoreDetailSerializer, AddressSeri
 
 class StoreViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Store.objects.filter(is_active=True)
+    lookup_value_regex = r"\d+"
 
     def get_serializer_class(self):
         if self.action == "list":

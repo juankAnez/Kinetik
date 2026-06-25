@@ -21,6 +21,7 @@ class Review(models.Model):
         verbose_name = "Calificación"
         verbose_name_plural = "Calificaciones"
         unique_together = ["order", "client"]
+        ordering = ["-created_at"]
 
 
 class Dispute(models.Model):
@@ -44,3 +45,4 @@ class Dispute(models.Model):
     class Meta:
         verbose_name = "Disputa"
         verbose_name_plural = "Disputas"
+        ordering = ["-created_at"]

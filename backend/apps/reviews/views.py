@@ -1,10 +1,7 @@
-from rest_framework import viewsets, status
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
+from rest_framework import viewsets
 from django.db.models import Avg
 from .models import Review, Dispute
 from .serializers import ReviewSerializer, DisputeSerializer
-from apps.orders.models import Order
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
@@ -14,8 +11,8 @@ class ReviewViewSet(viewsets.ModelViewSet):
         return Review.objects.filter(client=self.request.user)
 
     def perform_create(self, serializer):
-        review = serializer.save(client=self.request.user)
-        order = review.order
+        order = serializer.validated_data["order"]
+        review = serializer.save(client=self.request.user, store=order.store)
         store = order.store
 
         avg = Review.objects.filter(store=store).aggregate(

@@ -19,6 +19,7 @@ class PaymentMethod(models.Model):
     class Meta:
         verbose_name = "Método de pago"
         verbose_name_plural = "Métodos de pago"
+        ordering = ["-created_at"]
 
 
 class Transaction(models.Model):
@@ -42,6 +43,7 @@ class Transaction(models.Model):
     class Meta:
         verbose_name = "Transacción"
         verbose_name_plural = "Transacciones"
+        ordering = ["-created_at"]
 
 
 class Wallet(models.Model):

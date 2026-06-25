@@ -7,3 +7,4 @@ model-bakery>=1.18,<2.0
 ruff>=0.2,<0.3
 ipdb>=0.13,<0.14
 django-extensions>=3.2,<4.0
+Faker>=33.0,<34.0

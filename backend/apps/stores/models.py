@@ -81,3 +81,4 @@ class Address(models.Model):
     class Meta:
         verbose_name = "Dirección"
         verbose_name_plural = "Direcciones"
+        ordering = ["-created_at"]

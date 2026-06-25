@@ -3,14 +3,15 @@ from types import ModuleType
 from unittest.mock import MagicMock
 
 
-class FakePoint:
-    def __init__(self, x, y, srid=None, **kwargs):
-        self.x = x
-        self.y = y
-        self.srid = srid
-
-    def __str__(self):
-        return f"POINT ({self.x} {self.y})"
+class FakePoint(str):
+    def __new__(cls, x, y, srid=None, **kwargs):
+        wkt = f"POINT ({x} {y})"
+        instance = super().__new__(cls, wkt)
+        instance.x = x
+        instance.y = y
+        instance.srid = srid
+        instance._wkt = wkt
+        return instance
 
     def __eq__(self, other):
         if isinstance(other, FakePoint):
@@ -19,6 +20,22 @@ class FakePoint:
 
     def __repr__(self):
         return f"FakePoint({self.x}, {self.y}, srid={self.srid})"
+
+    def __reduce__(self):
+        return (self.__class__, (self.x, self.y, self.srid))
+
+    def hex(self):
+        return self._wkt
+
+    @property
+    def wkt(self):
+        return self._wkt
+
+    def coords(self):
+        return (self.x, self.y)
+
+    def tuple(self):
+        return (self.x, self.y)
 
 
 def _make_module(name, attrs=None):
@@ -49,6 +66,8 @@ def patch_gis():
             return "text"
         def get_internal_type(self):
             return "TextField"
+        def get_db_prep_save(self, value, connection):
+            return self.get_db_prep_value(value, connection=connection)
 
     class FakeDistance:
         pass
@@ -98,6 +117,12 @@ def patch_gis():
     gis_mod.functions = modules["django.contrib.gis.db.models.functions"]
     gis_mod.lookups = modules["django.contrib.gis.db.models.lookups"]
     gis_mod.aggregates = modules["django.contrib.gis.db.models.aggregates"]
+    for _name in (
+        "GeometryField", "PointField", "LineStringField", "PolygonField",
+        "MultiPointField", "MultiLineStringField", "MultiPolygonField",
+        "GeometryCollectionField", "RasterField", "BaseSpatialField",
+    ):
+        setattr(gis_mod, _name, getattr(gis_mod.fields, _name, FakeSpatialField))
 
 
 patch_gis()

@@ -8,6 +8,7 @@ from .serializers import TrackingPointSerializer, RouteSerializer
 
 class TrackingViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
+    serializer_class = TrackingPointSerializer
 
     def get_queryset(self):
         return TrackingPoint.objects.filter(
@@ -28,3 +29,16 @@ class TrackingViewSet(viewsets.ReadOnlyModelViewSet):
 
         serializer = TrackingPointSerializer(points, many=True)
         return Response(serializer.data)
+
+
+class RouteViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = RouteSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.user_type == "CLIENTE":
+            return Route.objects.filter(order__client=user)
+        elif user.user_type == "DOMICILIARIO":
+            return Route.objects.filter(order__courier=user)
+        return Route.objects.filter(order__store__commerceprofile__user=user)

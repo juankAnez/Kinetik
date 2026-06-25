@@ -77,7 +77,60 @@ WSGI_APPLICATION = "core.wsgi.application"
 ASGI_APPLICATION = "core.asgi.application"
 
 import sys
+from types import ModuleType
 from unittest.mock import MagicMock
+
+from django.db import models as _dj_models
+from django.template.context import Context as _Context, BaseContext
+
+# Workaround for Python 3.14: Context.__copy__ breaks because
+# super().__copy__() returns a bare object without 'dicts'.
+if not hasattr(_Context, '_kinetik_patched'):
+    _Context._kinetik_patched = True
+    def _safe_copy(self):
+        duplicate = BaseContext.__new__(_Context)
+        duplicate.dicts = self.dicts[:]
+        for attr in ('current_app', 'use_l10n', 'use_tz'):
+            if hasattr(self, attr):
+                setattr(duplicate, attr, getattr(self, attr))
+        return duplicate
+    _Context.__copy__ = _safe_copy
+
+
+class _FakeSpatialField(_dj_models.Field):
+    description = "Fake spatial field"
+    def __init__(self, *args, **kwargs):
+        for k in ("srid", "dim", "geography", "spatial_index"):
+            kwargs.pop(k, None)
+        super().__init__(*args, **kwargs)
+    def db_type(self, connection):
+        return "text"
+    def rel_db_type(self, connection):
+        return "text"
+    def get_internal_type(self):
+        return "TextField"
+    def get_db_prep_value(self, value, connection, prepared=False):
+        if value is not None and not isinstance(value, (str, int, float)):
+            value = str(value)
+        return super().get_db_prep_value(value, connection, prepared)
+    def get_db_prep_save(self, value, connection):
+        if value is not None:
+            return str(value)
+        return None
+
+
+class _FakeDistance:
+    pass
+
+
+def _make_module(name, attrs=None):
+    mod = ModuleType(name)
+    mod.__package__ = ".".join(name.split(".")[:-1]) if "." in name else ""
+    if attrs:
+        for k, v in attrs.items():
+            setattr(mod, k, v)
+    return mod
+
 
 for _mod_name in [
     "django.contrib.gis.gdal",
@@ -87,12 +140,43 @@ for _mod_name in [
     "django.contrib.gis.gdal.driver",
     "django.contrib.gis.forms",
     "django.contrib.gis.forms.fields",
-    "django.contrib.gis.db.models.fields",
-    "django.contrib.gis.db.models.functions",
-    "django.contrib.gis.db.models.lookups",
 ]:
     if _mod_name not in sys.modules:
         sys.modules[_mod_name] = MagicMock()
+
+if "django.contrib.gis.db.models.fields" not in sys.modules:
+    sys.modules["django.contrib.gis.db.models.fields"] = _make_module(
+        "django.contrib.gis.db.models.fields",
+        {
+            "PointField": _FakeSpatialField,
+            "GeometryField": _FakeSpatialField,
+            "LineStringField": _FakeSpatialField,
+            "PolygonField": _FakeSpatialField,
+            "MultiPointField": _FakeSpatialField,
+            "MultiLineStringField": _FakeSpatialField,
+            "MultiPolygonField": _FakeSpatialField,
+            "GeometryCollectionField": _FakeSpatialField,
+            "RasterField": _FakeSpatialField,
+            "BaseSpatialField": type("BaseSpatialField", (_dj_models.Field,), {}),
+        },
+    )
+
+if "django.contrib.gis.db.models.functions" not in sys.modules:
+    sys.modules["django.contrib.gis.db.models.functions"] = _make_module(
+        "django.contrib.gis.db.models.functions",
+        {"Distance": _FakeDistance, "Transform": type("Transform", (), {})},
+    )
+
+if "django.contrib.gis.db.models.lookups" not in sys.modules:
+    sys.modules["django.contrib.gis.db.models.lookups"] = _make_module(
+        "django.contrib.gis.db.models.lookups",
+    )
+
+if "django.contrib.gis.db.models.aggregates" not in sys.modules:
+    sys.modules["django.contrib.gis.db.models.aggregates"] = _make_module(
+        "django.contrib.gis.db.models.aggregates",
+        {"__all__": []},
+    )
 
 DATABASES = {
     "default": {

@@ -3,9 +3,33 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.utils import timezone
-from django.db import transaction
 from datetime import timedelta
-from apps.users.models import CourierProfile
+from .models import CourierLocation, CourierStatus
+from .serializers import CourierLocationSerializer, CourierStatusSerializer
+
+
+class CourierLocationViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CourierLocationSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.user_type == "DOMICILIARIO":
+            return CourierLocation.objects.filter(courier=user)
+        return CourierLocation.objects.filter(
+            courier__user_type="DOMICILIARIO"
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(courier=self.request.user)
+
+
+class CourierStatusViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CourierStatusSerializer
+
+    def get_queryset(self):
+        return CourierStatus.objects.select_related("courier").all()
 
 
 class CourierViewSet(viewsets.ViewSet):

@@ -15,6 +15,7 @@ class DailySalesReport(models.Model):
         verbose_name = "Reporte diario de ventas"
         verbose_name_plural = "Reportes diarios de ventas"
         unique_together = ["store", "date"]
+        ordering = ["-date", "store"]
 
 
 class CourierPerformance(models.Model):
@@ -32,6 +33,7 @@ class CourierPerformance(models.Model):
         verbose_name = "Rendimiento de domiciliario"
         verbose_name_plural = "Rendimientos de domiciliarios"
         unique_together = ["courier", "date"]
+        ordering = ["-date", "courier"]
 
 
 class MunicipioStats(models.Model):
@@ -46,3 +48,4 @@ class MunicipioStats(models.Model):
         verbose_name = "Estadísticas del municipio"
         verbose_name_plural = "Estadísticas de municipios"
         unique_together = ["municipio", "date"]
+        ordering = ["-date", "municipio"]

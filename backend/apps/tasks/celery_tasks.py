@@ -1,7 +1,7 @@
 from celery import shared_task
 from django.utils import timezone
 from datetime import timedelta
-from django.db.models import Count, Sum, Avg
+from django.db.models import Count, Sum
 
 
 @shared_task
@@ -23,7 +23,7 @@ def batch_assign_orders(municipio_id=None):
 @shared_task
 def send_push_notification(user_id, title, body, data=None):
     """Envía una notificación push a un usuario."""
-    from apps.notifications.models import Notification, PushToken
+    from apps.notifications.models import Notification
     Notification.objects.create(
         user_id=user_id,
         type="SYSTEM",
@@ -36,7 +36,6 @@ def send_push_notification(user_id, title, body, data=None):
 @shared_task
 def cleanup_expired_sessions():
     """Limpia tokens push inactivos y sesiones expiradas."""
-    from apps.notifications.models import PushToken
     from django.contrib.sessions.models import Session
     expired = Session.objects.filter(expire_date__lt=timezone.now())
     count = expired.count()
@@ -84,7 +83,6 @@ def generate_daily_reports():
 @shared_task
 def courier_heartbeat_check():
     """Marca como no disponibles domiciliarios sin ping por más de 5 minutos."""
-    from apps.users.models import User
     from apps.couriers.models import CourierStatus
 
     threshold = timezone.now() - timedelta(minutes=5)

@@ -44,6 +44,19 @@ class TestRegister:
         response = api_client.post(url, data, format="json")
         assert response.status_code == 400
 
+    def test_register_duplicate_phone_fails(self, api_client, cliente_user, municipio):
+        data = {
+            "username": "otrousuario",
+            "email": "otro@test.com",
+            "password": "strongpass123",
+            "phone": "3001111111",
+            "user_type": "CLIENTE",
+            "municipio": municipio.id,
+        }
+        url = reverse("register")
+        response = api_client.post(url, data, format="json")
+        assert response.status_code == 400
+
     def test_register_comercio_creates_commerce_profile(self, api_client, municipio):
         data = {
             "username": "nuevocom",
@@ -106,6 +119,16 @@ class TestLogin:
         }, format="json")
         assert response.status_code == 401
 
+    def test_login_inactive_user_fails(self, api_client, cliente_user):
+        cliente_user.is_active = False
+        cliente_user.save()
+        url = reverse("token_obtain_pair")
+        response = api_client.post(url, {
+            "username": "cliente",
+            "password": "testpass123",
+        }, format="json")
+        assert response.status_code == 401
+
     def test_refresh_token(self, api_client, cliente_user):
         from rest_framework_simplejwt.tokens import RefreshToken
         refresh = RefreshToken.for_user(cliente_user)
@@ -140,3 +163,27 @@ class TestProfile:
         url = reverse("user-me")
         response = api_client.get(url)
         assert response.status_code == 401
+
+
+class TestUserAdmin:
+    def test_user_model_registered_in_admin(self):
+        from django.contrib.admin.sites import site as admin_site
+        from apps.users.models import User
+        assert User in admin_site._registry
+        assert admin_site._registry[User].__class__.__name__ == "CustomUserAdmin"
+
+    def test_admin_has_staff_and_superuser_access(self, admin_user):
+        assert admin_user.is_staff
+        assert admin_user.is_superuser
+
+    def test_admin_can_list_users_via_api(self, admin_client):
+        url = reverse("user-me")
+        response = admin_client.get(url)
+        assert response.status_code == 200
+        assert response.data["username"] == "admin"
+
+    def test_admin_can_edit_user_via_api(self, admin_client, cliente_user):
+        url = reverse("user-me")
+        response = admin_client.patch(url, {"first_name": "AdminUpdated"}, format="json")
+        assert response.status_code == 200
+        assert response.data["first_name"] == "AdminUpdated"

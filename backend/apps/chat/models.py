@@ -12,6 +12,7 @@ class Conversation(models.Model):
     class Meta:
         verbose_name = "Conversación"
         verbose_name_plural = "Conversaciones"
+        ordering = ["-created_at"]
 
 
 class Message(models.Model):
