@@ -10,11 +10,11 @@
 |---|---|---|
 | Backend Django (13 apps) | ✅ Completado | 100% (modelos, vistas, serializers, URLs, admin, tests) |
 | Infraestructura Docker (dev) | ✅ Completo | 100% listo |
-| Infraestructura Docker (prod) | ❌ Pendiente | 0% |
+| Infraestructura Docker (prod) | ✅ Completo | 100% listo (multi-stage, Nginx+SSL, 7 servicios) |
 | Mobile React Native (Expo) | ❌ No iniciado | 0% |
 | Web Dashboard React (Vite) | ❌ No iniciado | 0% |
 | Scripts de automatización | 🟡 Parcial | Solo `seed_data` creado |
-| Tests automatizados | ✅ 119 tests | 118 passed, 1 xfailed (PostGIS requiere BD espacial) |
+| Tests automatizados | ✅ 119 tests | 118 passed, 1 xfailed |
 
 ---
 
@@ -99,8 +99,7 @@
 | Dockerfile | ✅ Multi-stage con GDAL |
 | Nginx config | ✅ Proxy reverso (API, WS, admin, estáticos) |
 | .env | ✅ Configurado |
-| Docker production | ❌ Pendiente |
-| CI/CD | ❌ No implementado |
+| Docker production | ✅ Multi-stage, Nginx+SSL, 7 servicios, image ~1.7GB |
 
 ---
 
@@ -117,8 +116,7 @@
 
 ### Alta prioridad
 1. **Integración real de pasarela de pagos** (Wompi/PayU/Stripe) — reemplazar simulación
-2. **Docker production** — configurar para despliegue real con SSL
-3. **CI/CD** — GitHub Actions con tests + deploy automático
+2. **CI/CD** — GitHub Actions con tests + deploy automático
 
 ### Media prioridad
 4. Iniciar Mobile React Native (Expo) — 13 módulos
