@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "Kinetik",
+    "slug": "kinetik",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kinetik.app",
+      "infoPlist": {
+        "UIBackgroundModes": ["location", "fetch"],
+        "NSLocationWhenInUseUsageDescription": "Kinetik necesita tu ubicación para encontrar tiendas cerca de ti y mostrar el tracking de tu pedido en tiempo real.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Kinetik necesita acceso a tu ubicación en segundo plano para que los clientes puedan ver el tracking del domiciliario en tiempo real."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.kinetik.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Kinetik necesita acceso a tu ubicación en segundo plano para el tracking del domiciliario.",
+          "locationWhenInUsePermission": "Kinetik necesita tu ubicación para encontrar tiendas cerca de ti."
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": "Kinetik usa Face ID para acceso rápido."
+        }
+      ]
+    ]
+  }
+}

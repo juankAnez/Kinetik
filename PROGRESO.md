@@ -11,7 +11,7 @@
 | Backend Django (13 apps) | ✅ Completado | 100% (modelos, vistas, serializers, URLs, admin, tests) |
 | Infraestructura Docker (dev) | ✅ Completo | 100% listo |
 | Infraestructura Docker (prod) | ✅ Completo | 100% listo (multi-stage, Nginx+SSL, 7 servicios) |
-| Mobile React Native (Expo) | ❌ No iniciado | 0% |
+| Mobile React Native (Expo) | 🟡 En desarrollo | ~40% (Auth, Catalog, Cart, Orders, infraestructura completa) |
 | Web Dashboard React (Vite) | ❌ No iniciado | 0% |
 | Scripts de automatización | 🟡 Parcial | Solo `seed_data` creado |
 | Tests automatizados | ✅ 119 tests | 118 passed, 1 xfailed |
@@ -103,12 +103,46 @@
 
 ---
 
-## 6. Frontend (No iniciado)
+## 6. Frontend Mobile — React Native (Expo)
 
-| Proyecto | Estado |
-|---|---|
-| Mobile React Native (Expo) | ❌ No existe — estructura definida en `arquitectura.md` |
-| Web Dashboard React (Vite + Tailwind) | ❌ No existe — estructura definida en `arquitectura.md` |
+| Módulo | Estado | Archivos |
+|--------|--------|----------|
+| **Scaffolding** | ✅ Completo | `package.json`, `app.json`, `tsconfig.json`, `babel.config.js`, `tailwind.config.js` |
+| **Infraestructura** | ✅ Completo | Axios client + JWT refresh automático, Zustand stores (auth, cart), tipos `models.ts`/`api.ts`/`navigation.ts` |
+| **Auth** | ✅ Login + Register | `LoginScreen`, `RegisterScreen`, Zod schemas, `useLogin`/`useRegister` hooks, SecureStore persist |
+| **Catalog** | ✅ Home, StoreDetail, ProductDetail | FlatList tiendas, lista productos por tienda, selector de opciones, carrito |
+| **Cart** | ✅ Pantalla de carrito | Ajustar cantidades, eliminar items, subtotal, resumen |
+| **Checkout** | ✅ Confirmar pedido | Dirección, notas, resumen, crear orden vía API |
+| **Order Detail** | ✅ Detalle de pedido | Estado, productos, total, tracking link |
+| **API Services** | ✅ 10 módulos | `auth`, `stores`, `products`, `orders`, `tracking`, `chat`, `reviews`, `payments`, `couriers`, `notifications` |
+| **Navigation** | ✅ Por rol | Auth (no auth) → Client/Domiciliario según `user_type` |
+| **WebSocket** | ❌ Pendiente | Cliente para tracking/chat/notificaciones |
+| **Courier** | 🟡 Esqueleto | Navigator creado, pantallas pendientes |
+| **Profile** | ❌ Pendiente | Perfil, direcciones guardadas |
+| **Chat** | ❌ Pendiente | WebSocket chat |
+| **Reviews** | ❌ Pendiente | Calificar después de entrega |
+
+**TypeScript:** ✅ Compila sin errores (0 errores)
+
+### Estructura del proyecto mobile
+```
+mobile/
+├── src/
+│   ├── app/App.tsx              # Entry point, providers
+│   ├── navigation/              # Root, Auth, Client, Courier
+│   ├── modules/
+│   │   ├── auth/                # Login, Register, schemas, hooks
+│   │   ├── catalog/             # Home, StoreDetail, ProductDetail
+│   │   ├── cart/                # CartScreen
+│   │   ├── orders/              # Checkout, OrderDetail
+│   │   ├── courier/             # Esqueleto
+│   │   └── ...
+│   ├── services/api/            # Axios client + 10 API modules
+│   ├── services/storage/        # SecureStore session
+│   ├── stores/                  # Zustand (auth, cart)
+│   ├── shared/                  # Components, hooks, utils
+│   └── types/                   # models.ts, api.ts, navigation.ts
+```
 
 ---
 
@@ -123,10 +157,11 @@
 2. **CI/CD** — GitHub Actions con tests + deploy automático
 
 ### Media prioridad
-3. Iniciar Mobile React Native (Expo) — 13 módulos
-4. Iniciar Web Dashboard React (Vite + Tailwind)
-5. Notificaciones push reales (FCM/APNs)
-6. Wallet con retiros bancarios reales
+3. **Mobile: WebSocket** (tracking en vivo, chat, notificaciones push)
+4. **Mobile: Pantallas de domiciliario** (disponibilidad, asignación, wallet)
+5. Iniciar Web Dashboard React (Vite + Tailwind)
+6. Notificaciones push reales (FCM/APNs)
+7. Wallet con retiros bancarios reales
 
 ### Features de negocio
 7. Propinas para domiciliarios
