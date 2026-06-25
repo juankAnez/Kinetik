@@ -115,21 +115,23 @@
 ## 7. Próximos Pasos
 
 ### Alta prioridad
-1. **Integración real de pasarela de pagos** (Wompi/PayU/Stripe) — reemplazar simulación
+1. **Pendiente: definición del modelo de pagos** — reunión con domiciliarios para definir:
+   - Pago cliente → domiciliario (efectivo/transferencia directa)
+   - Comisión domiciliario → plataforma por envío
+   - Comisión comercio → plataforma por venta
+   - Wallet y liquidaciones
 2. **CI/CD** — GitHub Actions con tests + deploy automático
 
 ### Media prioridad
-4. Iniciar Mobile React Native (Expo) — 13 módulos
-5. Iniciar Web Dashboard React (Vite + Tailwind)
-6. Notificaciones push reales (FCM/APNs)
-7. Wallet con retiros bancarios reales
+3. Iniciar Mobile React Native (Expo) — 13 módulos
+4. Iniciar Web Dashboard React (Vite + Tailwind)
+5. Notificaciones push reales (FCM/APNs)
+6. Wallet con retiros bancarios reales
 
 ### Features de negocio
-8. Sistema de suscripciones para comercios (Stripe recurrente)
-9. Propinas para domiciliarios
-10. Multi-municipio con django-pgschemas
-11. H3 spatial indexing (Uber) para >500 couriers
-12. Chat cliente ↔ comercio
+7. Propinas para domiciliarios
+8. Multi-municipio con django-pgschemas
+9. H3 spatial indexing (Uber) >500 couriers
 
 ---
 
