@@ -1,0 +1,14 @@
+Starting project at C:\Proyectos\Kinetik\mobile
+Starting Metro Bundler
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+Web .\index.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web .\index.ts ▓▓▓▓░░░░░░░░░░░░ 25.0% ( 52/132)
+Web .\index.ts ▓▓▓▓▓▓░░░░░░░░░░ 39.1% (122/195)
+Web Bundling failed 9711ms index.ts (257 modules)
+Unable to resolve "react-native-web/dist/exports/ActivityIndicator" from "src\navigation\RootNavigator.tsx"
+Web .\index.ts ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 71.2% (200/237)
+Web Bundling failed 940ms index.ts (258 modules)
+Unable to resolve "react-native-web/dist/exports/AppRegistry" from "node_modules\expo\src\launch\registerRootComponent.tsx"
+Web Bundling failed 439ms index.ts (256 modules)
+Unable to resolve "react-native-web/dist/exports/AppRegistry" from "node_modules\expo\src\launch\registerRootComponent.tsx"
