@@ -1,18 +1,9 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import type { CourierStackParamList } from "../types/navigation";
-import { View, Text } from "react-native";
+import CourierHomeScreen from "../modules/courier/screens/CourierHomeScreen";
+import AssignedOrderScreen from "../modules/courier/screens/AssignedOrderScreen";
 
 const Stack = createNativeStackNavigator<CourierStackParamList>();
-
-function CourierHome() {
-  return (
-    <View className="flex-1 bg-white justify-center items-center">
-      <Text className="text-lg text-gray-500">
-        Pantalla de domiciliario
-      </Text>
-    </View>
-  );
-}
 
 export default function CourierNavigator() {
   return (
@@ -20,12 +11,18 @@ export default function CourierNavigator() {
       screenOptions={{
         headerStyle: { backgroundColor: "#059669" },
         headerTintColor: "#fff",
+        headerTitleStyle: { fontWeight: "600" },
       }}
     >
       <Stack.Screen
         name="CourierHome"
-        component={CourierHome}
+        component={CourierHomeScreen}
         options={{ title: "Kinetik Courier" }}
+      />
+      <Stack.Screen
+        name="AssignedOrder"
+        component={AssignedOrderScreen}
+        options={{ title: "Pedido asignado" }}
       />
     </Stack.Navigator>
   );

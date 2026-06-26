@@ -19,7 +19,7 @@ const STATUS_MAP: Record<OrderStatus, { label: string; color: string }> = {
 
 type Props = NativeStackScreenProps<ClientStackParamList, "OrderDetail">;
 
-export default function OrderDetailScreen({ route }: Props) {
+export default function OrderDetailScreen({ route, navigation }: Props) {
   const { orderId } = route.params;
 
   const { data: order, isLoading } = useQuery({
@@ -93,7 +93,10 @@ export default function OrderDetailScreen({ route }: Props) {
       </View>
 
       {(order.status === "ASSIGNED" || order.status === "PICKED_UP") && (
-        <TouchableOpacity className="bg-amber-500 rounded-xl py-4 mx-4 mt-4 items-center">
+        <TouchableOpacity
+          className="bg-amber-500 rounded-xl py-4 mx-4 mt-4 items-center"
+          onPress={() => navigation.navigate("OrderTracking", { orderId: order.id })}
+        >
           <Text className="text-white font-bold text-lg">
             Ver tracking en vivo
           </Text>

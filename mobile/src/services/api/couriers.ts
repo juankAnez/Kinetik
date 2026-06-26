@@ -1,8 +1,8 @@
 import API from "./client";
 
 export const CouriersAPI = {
-  async toggleAvailability(): Promise<{ is_online: boolean }> {
-    const { data } = await API.post<{ is_online: boolean }>(
+  async toggleAvailability(): Promise<{ is_available: boolean }> {
+    const { data } = await API.post<{ is_available: boolean }>(
       "/couriers/toggle_availability/",
     );
     return data;

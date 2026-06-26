@@ -5,7 +5,9 @@ import StoreDetailScreen from "../modules/catalog/screens/StoreDetailScreen";
 import ProductDetailScreen from "../modules/catalog/screens/ProductDetailScreen";
 import CartScreen from "../modules/cart/CartScreen";
 import CheckoutScreen from "../modules/orders/screens/CheckoutScreen";
+import AddressPickerScreen from "../modules/orders/screens/AddressPickerScreen";
 import OrderDetailScreen from "../modules/orders/screens/OrderDetailScreen";
+import OrderTrackingScreen from "../modules/orders/screens/OrderTrackingScreen";
 
 const Stack = createNativeStackNavigator<ClientStackParamList>();
 
@@ -44,9 +46,19 @@ export default function ClientNavigator() {
         options={{ title: "Confirmar pedido" }}
       />
       <Stack.Screen
+        name="AddressPicker"
+        component={AddressPickerScreen}
+        options={{ title: "Dirección de entrega" }}
+      />
+      <Stack.Screen
         name="OrderDetail"
         component={OrderDetailScreen}
         options={{ title: "Pedido" }}
+      />
+      <Stack.Screen
+        name="OrderTracking"
+        component={OrderTrackingScreen}
+        options={{ title: "Tracking en vivo" }}
       />
     </Stack.Navigator>
   );

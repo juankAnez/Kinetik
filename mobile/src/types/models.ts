@@ -35,6 +35,7 @@ export interface Store {
   delivery_radius_km: number;
   avg_rating?: number;
   review_count?: number;
+  distance_km?: number;
   schedules?: Schedule[];
 }
 
@@ -71,6 +72,8 @@ export interface Order {
   store: number;
   store_name?: string;
   store_logo?: string;
+  store_address?: string;
+  store_location?: GeoPoint;
   courier?: number | null;
   municipio: number;
   status: OrderStatus;

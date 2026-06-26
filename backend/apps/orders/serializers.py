@@ -44,10 +44,20 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     store_name = serializers.CharField(source="store.name", read_only=True)
     store_logo = serializers.ImageField(source="store.logo", read_only=True)
+    store_address = serializers.CharField(source="store.address", read_only=True)
+    store_location = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = "__all__"
+
+    def get_store_location(self, obj):
+        loc = obj.store.location
+        if loc is None:
+            return None
+        if hasattr(loc, "x"):
+            return {"type": "Point", "coordinates": [loc.x, loc.y]}
+        return None
 
 
 class OrderStatusSerializer(serializers.Serializer):

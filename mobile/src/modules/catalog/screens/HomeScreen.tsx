@@ -1,9 +1,10 @@
 import { View, Text, FlatList, TouchableOpacity, Image, RefreshControl } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import * as Location from "expo-location";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import API from "../../../services/api/client";
+import { StoresAPI } from "../../../services/api/stores";
 import type { Store } from "../../../types/models";
 import type { ClientStackParamList } from "../../../types/navigation";
 import { formatCurrency } from "../../../shared/utils/format";
@@ -13,17 +14,44 @@ type NavProp = NativeStackNavigationProp<ClientStackParamList, "Home">;
 export default function HomeScreen() {
   const navigation = useNavigation<NavProp>();
   const [refreshing, setRefreshing] = useState(false);
+  const [userCoords, setUserCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === "granted") {
+        const loc = await Location.getCurrentPositionAsync({});
+        setUserCoords({
+          lat: loc.coords.latitude,
+          lng: loc.coords.longitude,
+        });
+      }
+    })();
+  }, []);
 
   const { data: stores, isLoading } = useQuery({
-    queryKey: ["stores"],
+    queryKey: ["stores", userCoords?.lat, userCoords?.lng],
     queryFn: async () => {
-      const { data } = await API.get<{ results: Store[] }>("/stores/");
-      return data.results ?? [];
+      if (userCoords) {
+        return StoresAPI.nearby(userCoords.lat, userCoords.lng, 10);
+      }
+      return StoresAPI.list();
     },
   });
 
   const onRefresh = async () => {
     setRefreshing(true);
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status === "granted") {
+      const loc = await Location.getCurrentPositionAsync({});
+      setUserCoords({
+        lat: loc.coords.latitude,
+        lng: loc.coords.longitude,
+      });
+    }
     await new Promise((r) => setTimeout(r, 1000));
     setRefreshing(false);
   };
@@ -91,13 +119,18 @@ export default function HomeScreen() {
                   </Text>
                 </View>
               )}
+              {item.distance_km && (
+                <Text className="text-gray-400 text-xs mt-1">
+                  A {item.distance_km.toFixed(1)} km
+                </Text>
+              )}
             </View>
           </TouchableOpacity>
         )}
         ListEmptyComponent={
           <View className="flex-1 justify-center items-center pt-20">
             <Text className="text-gray-400">
-              No hay tiendas disponibles en tu municipio
+              No hay tiendas disponibles cerca
             </Text>
           </View>
         }

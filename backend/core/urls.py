@@ -17,6 +17,7 @@ api_patterns = [
     path("reviews/", include("apps.reviews.urls")),
     path("analytics/", include("apps.analytics.urls")),
     path("municipios/", include("apps.municipios.urls")),
+    path("maps/", include("apps.maps.urls")),
 ]
 
 urlpatterns = [

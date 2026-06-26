@@ -18,6 +18,7 @@ export type ClientStackParamList = {
   ProductDetail: { storeId: number; productId: number };
   Cart: undefined;
   Checkout: undefined;
+  AddressPicker: undefined;
   OrderDetail: { orderId: number };
   OrderTracking: { orderId: number };
   Chat: { conversationId: number; orderId: number };
@@ -26,7 +27,7 @@ export type ClientStackParamList = {
 
 export type CourierStackParamList = {
   CourierHome: undefined;
-  AssignedOrder: undefined;
+  AssignedOrder: { orderId: number };
   OrderDetail: { orderId: number };
   Chat: { conversationId: number; orderId: number };
   Wallet: undefined;

@@ -190,7 +190,7 @@ class Command(BaseCommand):
                 is_open=True,
                 delivery_radius_km=random.choice([3, 5, 8]),
             )
-            CommerceProfile.objects.create(user=comercio, store=store)
+            CommerceProfile.objects.get_or_create(user=comercio, defaults={"store": store})
             stores.append(store)
         return stores
 
@@ -426,7 +426,7 @@ class Command(BaseCommand):
             )
 
     def _create_tracking_points(self, domiciliarios, orders):
-        for order in orders.filter(courier__isnull=False)[:20]:
+        for order in [o for o in orders if o.courier is not None][:20]:
             courier = order.courier
             for _ in range(random.randint(3, 8)):
                 mun = order.municipio
@@ -456,7 +456,7 @@ class Command(BaseCommand):
 
     def _create_reviews(self, clientes, orders, stores):
         from django.db.models import Avg as AvgModel
-        for order in orders.filter(status="DELIVERED")[:15]:
+        for order in [o for o in orders if o.status == "DELIVERED"][:15]:
             Review.objects.create(
                 order=order,
                 client=random.choice(clientes),

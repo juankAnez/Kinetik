@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
+import MapView, { Marker } from "react-native-maps";
+import * as Location from "expo-location";
 import { useMutation } from "@tanstack/react-query";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { ClientStackParamList } from "../../../types/navigation";
@@ -19,15 +21,42 @@ import { formatCurrency } from "../../../shared/utils/format";
 type Props = NativeStackScreenProps<ClientStackParamList, "Checkout">;
 
 export default function CheckoutScreen({ navigation }: Props) {
-  const { items, getSubtotal, deliveryAddress, deliveryNotes, setDeliveryAddress, setDeliveryNotes, clearCart } =
-    useCartStore();
+  const {
+    items,
+    getSubtotal,
+    deliveryAddress,
+    deliveryLocation,
+    deliveryNotes,
+    setDeliveryAddress,
+    setDeliveryLocation,
+    setDeliveryNotes,
+    clearCart,
+  } = useCartStore();
   const user = useAuthStore((s) => s.user);
-  const [address, setAddress] = useState(deliveryAddress);
-  const [notes, setNotes] = useState(deliveryNotes);
-
   const subtotal = getSubtotal();
   const deliveryFee = 3500;
   const total = subtotal + deliveryFee;
+
+  useEffect(() => {
+    if (!deliveryAddress) {
+      (async () => {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") return;
+
+        const loc = await Location.getCurrentPositionAsync({});
+        const { latitude, longitude } = loc.coords;
+        setDeliveryLocation({
+          type: "Point",
+          coordinates: [longitude, latitude],
+        });
+        setDeliveryAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+      })();
+    }
+  }, []);
+
+  const openAddressPicker = useCallback(() => {
+    navigation.navigate("AddressPicker");
+  }, [navigation]);
 
   const createOrderMutation = useMutation({
     mutationFn: () => {
@@ -38,8 +67,8 @@ export default function CheckoutScreen({ navigation }: Props) {
         store: items[0].product.store,
         municipio: user.municipio,
         payment_method: "CASH",
-        delivery_address: address,
-        delivery_location: {
+        delivery_address: deliveryAddress,
+        delivery_location: deliveryLocation ?? {
           type: "Point",
           coordinates: [-75.57, 6.24],
         },
@@ -67,6 +96,8 @@ export default function CheckoutScreen({ navigation }: Props) {
     },
   });
 
+  const [notes, setNotes] = useState(deliveryNotes);
+
   return (
     <ScrollView className="flex-1 bg-gray-50 p-4">
       <Text className="text-xl font-bold text-gray-800 mb-4">
@@ -77,12 +108,36 @@ export default function CheckoutScreen({ navigation }: Props) {
         <Text className="font-semibold text-gray-800 mb-3">
           Dirección de entrega
         </Text>
-        <TextInput
+        <TouchableOpacity
           className="border border-gray-300 rounded-lg px-4 py-3 bg-gray-50"
-          placeholder="Calle 50 # 40-1"
-          value={address}
-          onChangeText={setAddress}
-        />
+          onPress={openAddressPicker}
+        >
+          <Text className="text-gray-700" numberOfLines={2}>
+            {deliveryAddress || "Toca para seleccionar dirección en el mapa"}
+          </Text>
+        </TouchableOpacity>
+        {deliveryLocation && (
+          <View className="h-32 mt-3 rounded-lg overflow-hidden">
+            <MapView
+              className="flex-1"
+              scrollEnabled={false}
+              zoomEnabled={false}
+              initialRegion={{
+                latitude: deliveryLocation.coordinates[1],
+                longitude: deliveryLocation.coordinates[0],
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+            >
+              <Marker
+                coordinate={{
+                  latitude: deliveryLocation.coordinates[1],
+                  longitude: deliveryLocation.coordinates[0],
+                }}
+              />
+            </MapView>
+          </View>
+        )}
       </View>
 
       <View className="bg-white rounded-xl p-4 mb-4 shadow-sm">
@@ -93,7 +148,10 @@ export default function CheckoutScreen({ navigation }: Props) {
           className="border border-gray-300 rounded-lg px-4 py-3 bg-gray-50"
           placeholder="Ej: Tocar el timbre 3 veces"
           value={notes}
-          onChangeText={setNotes}
+          onChangeText={(v) => {
+            setNotes(v);
+            setDeliveryNotes(v);
+          }}
           multiline
           numberOfLines={3}
         />
@@ -143,7 +201,7 @@ export default function CheckoutScreen({ navigation }: Props) {
           createOrderMutation.isPending ? "opacity-50" : ""
         }`}
         onPress={() => createOrderMutation.mutate()}
-        disabled={createOrderMutation.isPending || !address}
+        disabled={createOrderMutation.isPending || !deliveryAddress}
       >
         {createOrderMutation.isPending ? (
           <ActivityIndicator color="white" />

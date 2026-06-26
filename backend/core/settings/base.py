@@ -46,6 +46,7 @@ LOCAL_APPS = [
     "apps.reviews",
     "apps.analytics",
     "apps.tasks",
+    "apps.maps",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -225,6 +226,8 @@ if SENTRY_DSN:
         dsn=SENTRY_DSN,
         traces_sample_rate=0.1,
     )
+
+GOOGLE_MAPS_API_KEY = config("GOOGLE_MAPS_API_KEY", default="")
 
 AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID", default=None)
 AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", default=None)
