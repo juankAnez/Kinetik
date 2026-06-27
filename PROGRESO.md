@@ -14,7 +14,7 @@
 | Mobile React Native (Expo) | 🟡 En desarrollo | ~40% (Auth, Catalog, Cart, Orders, infraestructura completa) |
 | Web Dashboard React (Vite) | ❌ No iniciado | 0% |
 | Scripts de automatización | 🟡 Parcial | Solo `seed_data` creado |
-| Tests automatizados | ✅ 172 tests | 170 passed, 2 xfailed |
+| Tests automatizados | ✅ 179 tests | 177 passed, 2 xfailed |
 
 ---
 
@@ -50,7 +50,7 @@
 
 ---
 
-## 3. Tests — 172 total
+## 3. Tests — 179 total
 
 | App | Tests | Cobertura |
 |---|---|---|
@@ -60,6 +60,7 @@
 | `products` | 5 | CRUD, filtros, availability |
 | `orders` | 26 | Ciclo completo, transiciones, wallet, permisos, timestamps |
 | `orders (concurrency)` | 8 | Atomic assignment, webhook idempotency, wallet concurrencia, courier order count |
+| `orders (integration)` | 7 | E2E: REST lifecycle (store→order→payment→status→courier→delivery→wallet), WebSocket chat, GPS tracking, notifications |
 | `payments` | 17 | PaymentMethod CRUD, intent, webhook, transactions, wallet |
 | `notifications` | 8 | List, mark_read, unread_count, aislamiento |
 | `chat` | 8 | REST (conversaciones, mensajes) + WebSocket |
@@ -70,7 +71,7 @@
 | `maps` | 4 | Geocode (cache, normalized key, TTL) + Reverse geocode (cache, key prefix) |
 | `maps (directions)` | 9 | Directions CRUD, missing params, 502, fallback Google↔Nominatim, geolocator caching, Google limit, cache behavior |
 
-**Resultado: 170 passed ✅, 2 xfailed ⚠️ (Pruebas de cercanía/PostGIS requieren base de datos espacial — se ejecutan en CI con PostGIS)**
+**Resultado: 177 passed ✅, 2 xfailed ⚠️ (Pruebas de cercanía/PostGIS requieren base de datos espacial — se ejecutan en CI con PostGIS)**
 
 ---
 
