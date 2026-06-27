@@ -14,7 +14,7 @@
 | Mobile React Native (Expo) | 🟡 En desarrollo | ~40% (Auth, Catalog, Cart, Orders, infraestructura completa) |
 | Web Dashboard React (Vite) | ❌ No iniciado | 0% |
 | Scripts de automatización | 🟡 Parcial | Solo `seed_data` creado |
-| Tests automatizados | ✅ 122 tests | 120 passed, 2 xfailed |
+| Tests automatizados | ✅ 172 tests | 170 passed, 2 xfailed |
 
 ---
 
@@ -50,7 +50,7 @@
 
 ---
 
-## 3. Tests — 122 total
+## 3. Tests — 172 total
 
 | App | Tests | Cobertura |
 |---|---|---|
@@ -58,16 +58,19 @@
 | `municipios` | 6 | CRUD admin, list público |
 | `stores` | 8 | CRUD, nearby, addresses, filtros |
 | `products` | 5 | CRUD, filtros, availability |
-| `orders` | 26 | Ciclo completo, transiciones (delivered/cancelled), ganancias en wallet, permisos, timestamps |
+| `orders` | 26 | Ciclo completo, transiciones, wallet, permisos, timestamps |
+| `orders (concurrency)` | 8 | Atomic assignment, webhook idempotency, wallet concurrencia, courier order count |
 | `payments` | 17 | PaymentMethod CRUD, intent, webhook, transactions, wallet |
 | `notifications` | 8 | List, mark_read, unread_count, aislamiento |
 | `chat` | 8 | REST (conversaciones, mensajes) + WebSocket |
 | `reviews` | 11 | Review CRUD, rating update, dispute CRUD |
 | `analytics` | 11 | Dashboard, DailySales, CourierPerformance, MunicipioStats |
-| `couriers` | 1 | Coordenadas y cálculo de score (AssignmentLog persistido con score real) |
-| `tracking` | (integrados en WS tests) | TrackingPoints + Routes vía REST y WebSocket |
+| `couriers` | 1 + 1 xfail | Score y asignación (xfail sin PostGIS) |
+| `tracking` | 13 | REST (list, order_history, routes + isolation) + WebSocket (connect 3 roles, reject 3 escenarios, location update, assigned event) |
+| `maps` | 4 | Geocode (cache, normalized key, TTL) + Reverse geocode (cache, key prefix) |
+| `maps (directions)` | 9 | Directions CRUD, missing params, 502, fallback Google↔Nominatim, geolocator caching, Google limit, cache behavior |
 
-**Resultado: 120 passed ✅, 2 xfailed ⚠️ (Pruebas de cercanía/PostGIS requieren base de datos espacial)**
+**Resultado: 170 passed ✅, 2 xfailed ⚠️ (Pruebas de cercanía/PostGIS requieren base de datos espacial — se ejecutan en CI con PostGIS)**
 
 ---
 
@@ -154,7 +157,6 @@ mobile/
    - Comisión domiciliario → plataforma por envío
    - Comisión comercio → plataforma por venta
    - Wallet y liquidaciones
-2. **CI/CD** — GitHub Actions con tests + deploy automático
 
 ### Media prioridad
 3. **Mobile: WebSocket** (tracking en vivo, chat, notificaciones push)
