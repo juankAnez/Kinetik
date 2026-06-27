@@ -5,6 +5,7 @@ import { useAuthStore } from "../stores/authStore";
 import AuthNavigator from "./AuthNavigator";
 import ClientNavigator from "./ClientNavigator";
 import CourierNavigator from "./CourierNavigator";
+import CommerceNavigator from "./CommerceNavigator";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -33,6 +34,8 @@ export default function RootNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {role === "DOMICILIARIO" ? (
         <Stack.Screen name="Courier" component={CourierNavigator} />
+      ) : role === "COMERCIO" ? (
+        <Stack.Screen name="Commerce" component={CommerceNavigator} />
       ) : (
         <Stack.Screen name="Client" component={ClientNavigator} />
       )}

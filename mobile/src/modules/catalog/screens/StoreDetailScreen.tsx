@@ -13,7 +13,7 @@ export default function StoreDetailScreen({ route, navigation }: Props) {
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["products", storeId],
-    queryFn: () => ProductsAPI.list(storeId),
+    queryFn: () => ProductsAPI.list({ store: storeId }),
   });
 
   const renderProduct = ({ item }: { item: Product }) => (

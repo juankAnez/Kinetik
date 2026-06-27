@@ -31,21 +31,33 @@ export interface Store {
   category_name?: string;
   municipio: number;
   is_active: boolean;
+  is_open?: boolean;
   location: GeoPoint;
+  address?: string;
+  phone?: string;
   delivery_radius_km: number;
   avg_rating?: number;
   review_count?: number;
   distance_km?: number;
   schedules?: Schedule[];
+  plan?: string;
+  commission_rate?: number;
+  total_orders?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Schedule {
   id: number;
-  store: number;
-  day_of_week: number;
-  opens: string;
-  closes: string;
-  is_closed: boolean;
+  store?: number;
+  day?: number;
+  day_of_week?: number;
+  open_time: string;
+  close_time: string;
+  opens?: string;
+  closes?: string;
+  is_active?: boolean;
+  is_closed?: boolean;
 }
 
 export interface Product {
@@ -54,11 +66,18 @@ export interface Product {
   name: string;
   description: string;
   price: string;
+  compare_price?: string;
   image?: string;
   category: number;
   category_name?: string;
+  category_detail?: { id: number; name: string; order: number };
   is_available: boolean;
+  stock?: number;
+  preparation_time?: number;
+  sort_order?: number;
   options?: ProductOption[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ProductOption {

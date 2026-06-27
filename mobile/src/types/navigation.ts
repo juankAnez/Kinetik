@@ -36,8 +36,11 @@ export type CourierStackParamList = {
 
 export type CommerceStackParamList = {
   CommerceHome: undefined;
-  OrderDetail: { orderId: number };
-  Catalog: undefined;
+  CommerceStoreSettings: undefined;
+  CommerceProductList: undefined;
+  CommerceProductForm: { productId?: number } | undefined;
+  CommerceOrderList: { status?: string } | undefined;
+  CommerceOrderDetail: { orderId: number };
 };
 
 export type TabParamList = {
